@@ -4,6 +4,7 @@ import json
 import os
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import sqlalchemy
 from databases import Database
@@ -61,7 +62,7 @@ async def calculate_kubernetes_costs(hours=24):
     Parameters:
     - hours: Data period in hours
     """
-    print("\nIniciando cálculo de custos...")
+    print("\nStarting cost calculation...")
     
     # Cost definition per unit (fictional example)
     costs = {
@@ -69,7 +70,7 @@ async def calculate_kubernetes_costs(hours=24):
         "memory_gb_hour": 0.0042,  # $0.0042 per GB/hour (based on GKE/EKS prices)
     }
     
-    print("\nBuscando dados de memória...")
+    print("\nFetching memory data...")
     # Get memory data
     memory_data = await database.fetch_all(
         """
@@ -89,11 +90,11 @@ async def calculate_kubernetes_costs(hours=24):
         values={"hours": hours}
     )
     
-    print(f"Registros de memória encontrados: {len(memory_data) if memory_data else 0}")
+    print(f"Memory records found: {len(memory_data) if memory_data else 0}")
     
     # Se não houver dados de memória, tentar usar apenas dados de CPU
     if not memory_data:
-        print("\nNenhum dado de memória encontrado. Tentando calcular custos apenas com CPU...")
+        print("\nNo memory data found. Trying to calculate costs with CPU only...")
         cpu_only_data = await database.fetch_all(
             """
             SELECT 
@@ -112,10 +113,10 @@ async def calculate_kubernetes_costs(hours=24):
             values={"hours": hours}
         )
         
-        print(f"Registros de CPU encontrados: {len(cpu_only_data) if cpu_only_data else 0}")
+        print(f"CPU records found: {len(cpu_only_data) if cpu_only_data else 0}")
         
         if not cpu_only_data:
-            print("Nenhum dado de CPU encontrado também.")
+            print("No CPU data found either.")
             return {
                 "timestamp": datetime.datetime.now().isoformat(),
                 "period_hours": hours,
@@ -191,13 +192,13 @@ async def calculate_kubernetes_costs(hours=24):
         }
     
     # Se temos dados de memória, continuar com o cálculo normal
-    print("\nCalculando custos com CPU e memória...")
+    print("\nCalculating costs with CPU and memory...")
     results = []
     total_cost = 0
     namespace_costs = {}
     
     for memory_row in memory_data:
-        print(f"\nProcessando pod: {memory_row['pod_name']}")
+        print(f"\nProcessing pod: {memory_row['pod_name']}")
         # Find corresponding CPU data
         cpu_data = await database.fetch_all(
             """
@@ -222,21 +223,21 @@ async def calculate_kubernetes_costs(hours=24):
         )
         
         avg_memory_gb = memory_row['avg_memory_mb'] / 1024  # Convert MB to GB
-        print(f"Memória média: {avg_memory_gb:.2f} GB")
+        print(f"Average Memory: {avg_memory_gb:.2f} GB")
         
         avg_cpu_cores = 0
         if cpu_data:
             avg_cpu_cores = cpu_data[0]['avg_cpu_cores']
-        print(f"CPU média: {avg_cpu_cores:.2f} cores")
+        print(f"Average CPU: {avg_cpu_cores:.2f} cores")
         
         # Calculate cost
         cpu_cost = avg_cpu_cores * costs["cpu_core_hour"] * hours
         memory_cost = avg_memory_gb * costs["memory_gb_hour"] * hours
         total_pod_cost = cpu_cost + memory_cost
         
-        print(f"Custo CPU: ${cpu_cost:.2f}")
-        print(f"Custo Memória: ${memory_cost:.2f}")
-        print(f"Custo Total do Pod: ${total_pod_cost:.2f}")
+        print(f"CPU Cost: ${cpu_cost:.2f}")
+        print(f"Memory Cost: ${memory_cost:.2f}")
+        print(f"Total Pod Cost: ${total_pod_cost:.2f}")
         
         # Add to results
         pod_result = {
@@ -285,7 +286,7 @@ async def calculate_kubernetes_costs(hours=24):
     # Ordenar por custo total
     namespace_summary = sorted(namespace_summary, key=lambda x: x["total_cost"], reverse=True)
     
-    print(f"\nCálculo finalizado. Custo total: ${round(total_cost, 2)}")
+    print(f"\nCalculation finished. Total cost: ${round(total_cost, 2)}")
     
     return {
         "timestamp": datetime.datetime.now().isoformat(),
@@ -304,7 +305,7 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
     - hours: Data period in hours
     - output_dir: Directory to save the charts
     """
-    print("\nGerando gráficos de custos...")
+    print("\nGenerating cost charts...")
     
     # Create absolute path for output directory
     output_dir = os.path.abspath(output_dir)
@@ -312,122 +313,191 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
     # Create directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
-    print(f"Diretório de saída: {output_dir}")
+    print(f"Output directory: {output_dir}")
     
     # Get cost data
     cost_data = await calculate_kubernetes_costs(hours)
     
     if not cost_data:
-        print("Nenhum dado de custo disponível")
+        print("No cost data available")
         return None
         
     if not cost_data.get("namespace_summary"):
-        print("Nenhum dado de namespace disponível")
+        print("No namespace data available")
         return None
     
-    print(f"Encontrados dados de custo para {len(cost_data['namespace_summary'])} namespaces")
+    print(f"Found cost data for {len(cost_data['namespace_summary'])} namespaces")
     
     # Create DataFrame for charts
     df = pd.DataFrame(cost_data["namespace_summary"])
     
     try:
-        print("\nGerando gráfico de barras de custo total por namespace...")
-        # Chart configuration
+        print("\nGenerating total cost bar chart by namespace...")
+        # Configurações globais do matplotlib
+        plt.style.use('default')  # Usando estilo padrão ao invés de seaborn
+        
+        # Configurações de fonte e tamanho
+        plt.rcParams.update({
+            'font.size': 12,
+            'font.family': 'sans-serif',
+            'axes.labelsize': 14,
+            'axes.titlesize': 16,
+            'figure.titlesize': 18,
+            'legend.fontsize': 12,
+            'figure.figsize': (12, 8),
+            'figure.dpi': 100
+        })
+        
+        # Gráfico de Pizza (Cost Distribution)
         plt.figure(figsize=(12, 8))
         
-        # Bar chart for total cost by namespace
-        ax = df.sort_values("total_cost", ascending=False).plot(
-            x="namespace", 
-            y="total_cost", 
-            kind="bar", 
-            color="steelblue",
-            title=f"Custo Total por Namespace (últimas {hours} horas)"
+        # Usar uma paleta de cores mais atraente
+        colors = ['#2E86C1', '#28B463', '#F1C40F', '#E67E22', '#CB4335', '#7D3C98']
+        
+        # Calcular o total antes de formatar os labels
+        total = df["total_cost"].sum()
+        
+        # Formatar labels para melhor legibilidade
+        labels = [
+            f"{label}\n${value:.2f}\n{value/total*100:.1f}%"
+            for label, value in zip(df["namespace"], df["total_cost"])
+        ]
+        
+        # Criar o gráfico de pizza com mais espaço para os labels
+        patches, texts, autotexts = plt.pie(
+            df["total_cost"],
+            labels=labels,
+            colors=colors,
+            autopct='%1.1f%%',
+            shadow=False,
+            startangle=90,
+            textprops={'fontsize': 10},
+            wedgeprops={'linewidth': 2, 'edgecolor': 'white'},
+            pctdistance=0.85,
+            labeldistance=1.1
         )
         
-        # Add values to bars
-        for i, v in enumerate(df.sort_values("total_cost", ascending=False)["total_cost"]):
-            ax.text(i, v + 0.1, f"${v}", ha="center")
+        # Ajustar o layout para evitar cortes
+        plt.axis('equal')
         
-        plt.xlabel("Namespace")
-        plt.ylabel("Custo ($)")
-        plt.tight_layout()
+        # Criar caixas de texto com linhas de conexão
+        bbox_props = dict(boxstyle="round,pad=0.3", fc="w", ec="gray", alpha=0.9)
         
-        chart1_path = os.path.join(output_dir, f"cost_by_namespace_{hours}h.png")
-        plt.savefig(chart1_path)
-        print(f"Gráfico salvo: {chart1_path}")
+        # Calcular ângulos centrais das fatias para posicionar os labels
+        angles = []
+        start_angle = 90
+        for value in df["total_cost"]:
+            angle = value / total * 360
+            center_angle = start_angle - angle / 2
+            angles.append(np.radians(center_angle))
+            start_angle -= angle
         
-        print("\nGerando gráfico de pizza de distribuição de custos...")
-        # Pie chart for cost distribution
-        plt.figure(figsize=(10, 10))
-        
-        # Show only top 5 namespaces, group the rest as "Others"
-        if len(df) > 5:
-            top_df = df.sort_values("total_cost", ascending=False).head(5)
-            other_cost = df.sort_values("total_cost", ascending=False).iloc[5:]["total_cost"].sum()
+        # Ajustar a posição dos textos baseado no ângulo da fatia
+        for i, (text, angle) in enumerate(zip(texts, angles)):
+            # Calcular a posição radial com ajuste de raio baseado no tamanho da fatia
+            value = df["total_cost"].iloc[i]
+            percentage = value / total
+            namespace = df["namespace"].iloc[i]
             
-            data = top_df["total_cost"].tolist() + [other_cost]
-            labels = top_df["namespace"].tolist() + ["Outros"]
-        else:
-            data = df["total_cost"].tolist()
-            labels = df["namespace"].tolist()
+            # Ajustar raio baseado no tamanho da fatia e namespace
+            if percentage > 0.5:  # Para fatias grandes
+                radius = 0.8
+            elif namespace == "newrelic":  # Ajuste específico para newrelic
+                radius = 1.5
+                angle = np.radians(45)  # Forçar ângulo para 45 graus (mais à direita)
+            elif percentage > 0.1:  # Para fatias médias
+                radius = 1.4
+            else:  # Para fatias pequenas
+                radius = 1.2
+            
+            # Calcular posição
+            x = np.cos(angle) * radius
+            y = np.sin(angle) * radius
+            
+            # Ajustar alinhamento baseado na posição
+            if x < 0:
+                text.set_horizontalalignment('right')
+            else:
+                text.set_horizontalalignment('left')
+            
+            # Ajustar posição vertical para evitar sobreposição
+            if abs(y) < 0.2 and namespace != "newrelic":  # Não ajustar verticalmente para newrelic
+                y += 0.2 * (1 if y >= 0 else -1)
+            
+            text.set_position((x, y))
+            text.set_bbox(bbox_props)
         
-        # Add percentages to labels
-        total = sum(data)
-        labels = [f"{label} (${value:.2f}, {value/total*100:.1f}%)" for label, value in zip(labels, data)]
+        # Remover os autotexts (porcentagens) que estão sobrepostos
+        for autotext in autotexts:
+            autotext.set_visible(False)
         
-        # Pie chart
-        plt.pie(data, labels=labels, autopct="%1.1f%%", shadow=True, startangle=90)
-        plt.axis("equal")
-        plt.title(f"Distribuição de Custos por Namespace (últimas {hours} horas)")
+        plt.title(
+            f"Cost Distribution by Namespace\n(last {hours} hours)",
+            pad=20,
+            fontweight='bold'
+        )
         
-        chart2_path = os.path.join(output_dir, f"cost_distribution_{hours}h.png")
-        plt.savefig(chart2_path)
-        print(f"Gráfico salvo: {chart2_path}")
+        # Salvar gráfico de pizza
+        chart1_path = os.path.join(output_dir, f"cost_distribution_{hours}h.png")
+        plt.savefig(chart1_path, bbox_inches='tight', dpi=100)
+        plt.close()
         
-        # Only generate CPU vs Memory comparison if we have memory data
-        if any(df["memory_cost"] > 0):
-            print("\nGerando gráfico de comparação CPU vs Memória...")
-            # CPU vs Memory comparison chart
-            plt.figure(figsize=(12, 8))
-            
-            # Create data for the chart
-            cpu_costs = df.sort_values("total_cost", ascending=False).head(10)["cpu_cost"]
-            memory_costs = df.sort_values("total_cost", ascending=False).head(10)["memory_cost"]
-            namespaces = df.sort_values("total_cost", ascending=False).head(10)["namespace"]
-            
-            x = range(len(namespaces))
-            width = 0.35
-            
-            fig, ax = plt.subplots(figsize=(12, 8))
-            rects1 = ax.bar([i - width/2 for i in x], cpu_costs, width, label="CPU")
-            rects2 = ax.bar([i + width/2 for i in x], memory_costs, width, label="Memória")
-            
-            ax.set_xlabel("Namespace")
-            ax.set_ylabel("Custo ($)")
-            ax.set_title(f"Comparação de Custos CPU vs Memória por Namespace (últimas {hours} horas)")
-            ax.set_xticks(x)
-            ax.set_xticklabels(namespaces, rotation=45, ha="right")
-            ax.legend()
-            
-            plt.tight_layout()
-            
-            chart3_path = os.path.join(output_dir, f"cpu_vs_memory_{hours}h.png")
-            plt.savefig(chart3_path)
-            print(f"Gráfico salvo: {chart3_path}")
-            
-            charts_generated = [chart1_path, chart2_path, chart3_path]
-        else:
-            print("\nDados de memória não disponíveis, pulando gráfico de comparação CPU vs Memória")
-            charts_generated = [chart1_path, chart2_path]
+        # Gráfico de Barras (Total Cost)
+        plt.figure()
+        bars = plt.bar(
+            range(len(df["namespace"])),
+            df["total_cost"],
+            color=colors[:len(df["namespace"])],
+            width=0.7
+        )
         
-        print(f"\nTodos os gráficos foram salvos no diretório: {output_dir}")
+        # Adicionar valores no topo das barras
+        for bar in bars:
+            height = bar.get_height()
+            plt.text(
+                bar.get_x() + bar.get_width()/2.,
+                height,
+                f'${height:.2f}',
+                ha='center',
+                va='bottom',
+                fontsize=12,
+                fontweight='bold'
+            )
+        
+        plt.xticks(
+            range(len(df["namespace"])),
+            df["namespace"],
+            rotation=45,
+            ha='right',
+            fontweight='bold'
+        )
+        
+        plt.title(
+            f"Total Cost by Namespace\n(last {hours} hours)",
+            pad=20,
+            fontweight='bold'
+        )
+        plt.xlabel("Namespace", labelpad=10, fontweight='bold')
+        plt.ylabel("Cost ($)", labelpad=10, fontweight='bold')
+        plt.grid(True, linestyle='--', alpha=0.7)
+        
+        # Salvar gráfico de barras
+        chart2_path = os.path.join(output_dir, f"cost_by_namespace_{hours}h.png")
+        plt.savefig(chart2_path, bbox_inches='tight', dpi=100)
+        plt.close()
+        
+        charts_generated = [chart1_path, chart2_path]
+        print(f"\nCharts saved successfully:")
+        print(f"- Cost Distribution: {chart1_path}")
+        print(f"- Total Cost: {chart2_path}")
+        
         return {
             "charts_generated": charts_generated,
             "data": cost_data
         }
     
     except Exception as e:
-        print(f"Erro ao gerar gráficos: {str(e)}")
+        print(f"Error generating charts: {str(e)}")
         return None
     finally:
         plt.close('all')  # Clean up all plots

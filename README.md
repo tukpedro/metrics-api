@@ -1,102 +1,166 @@
-# Metrics API para Kubernetes
+# Kubernetes Metrics API
 
-Uma API simplificada para extrair métricas de plataformas de observabilidade (DataDog, New Relic) sobre clusters Kubernetes, transformar os dados e armazená-los localmente.
+A streamlined API for extracting, transforming, and storing Kubernetes metrics from observability platforms (DataDog, New Relic) into a local database.
 
-## Objetivo
+## Overview
 
-Este projeto foi desenvolvido como demonstração para uma vaga de Python Backend Engineer, focando na criação de um serviço que:
+This project demonstrates a Python Backend Engineering solution that:
 
-1. Consulta APIs de plataformas de observabilidade (New Relic, DataDog)
-2. Extrai métricas relacionadas a clusters Kubernetes (CPU, memória, contagem de pods, uso por namespace)
-3. Transforma e armazena estes dados em formato customizado no PostgreSQL
-4. Fornece análise de custos por namespace
+1. Queries observability platform APIs (New Relic, DataDog)
+2. Extracts Kubernetes cluster metrics (CPU, memory, pod count, namespace usage)
+3. Transforms and stores data in a custom PostgreSQL format
+4. Provides namespace cost analysis
 
-## Arquitetura
+## Architecture
 
-- **API REST**: Desenvolvida com FastAPI para consultar e retornar métricas
-- **Banco de Dados**: PostgreSQL para armazenamento das métricas processadas
-- **Análise de Custos**: Script para calcular custos aproximados e gerar relatórios
+- **REST API**: Built with FastAPI for querying and returning metrics
+- **Database**: PostgreSQL for processed metrics storage
+- **Cost Analysis**: Script for calculating approximate costs and generating reports
 
-## Principais Funcionalidades
+## Core Features
 
-### Endpoints de Métricas
+### Metric Endpoints
 
-- `/nr/kubernetes`: Extrai métricas de Kubernetes do New Relic (CPU, memória, contagem de pods)
-- `/nr/cpu`: Dados detalhados de CPU
-- `/nr/memory`: Dados detalhados de memória
-- `/nr/dashboard`: Dashboard com métricas principais
-- `/fetch-datadog-metrics`: Busca métricas do DataDog (kubernetes.cpu.usage.total)
+- `/nr/kubernetes`: Extracts Kubernetes metrics from New Relic (CPU, memory, pod count)
+- `/nr/cpu`: Detailed CPU data
+- `/nr/memory`: Detailed memory data
+- `/nr/dashboard`: Main metrics dashboard
+- `/fetch-datadog-metrics`: Fetches DataDog metrics (kubernetes.cpu.usage.total)
 
-### Modelo de Dados
+### Data Model
 
-- Tabela `kubernetes_metrics`: Armazena métricas específicas de Kubernetes com schema customizado
-- Tabela `metrics`: Armazena métricas genéricas
+- `kubernetes_metrics` table: Stores Kubernetes-specific metrics with custom schema
+- `metrics` table: Stores generic metrics
 
-### Análise de Custos
+### Cost Analysis
 
-O script `kubernetes_cost_analysis.py` fornece:
+The `kubernetes_cost_analysis.py` script provides:
 
-- Cálculo de custos aproximados baseados em uso de CPU e memória
-- Relatórios por namespace e pod
-- Gráficos para visualização de custos
-- Tendências de uso e custo ao longo do tempo
+- Approximate cost calculations based on CPU and memory usage
+- Namespace and pod-level reports
+- Cost visualization charts
+- Usage and cost trends over time
 
-## Instalação
+## Installation
 
-1. Clone o repositório:
+1. Clone the repository:
 ```bash
-git clone https://github.com/seu-usuario/metrics-api.git
+git clone https://github.com/your-username/metrics-api.git
 cd metrics-api
 ```
 
-2. Instale as dependências:
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Configure as variáveis de ambiente no arquivo `.env`:
-```
-DATABASE_URL=postgresql+psycopg2://usuario:senha@localhost/nome_do_banco
-NEWRELIC_API_KEY=sua_chave_api_newrelic
-NEWRELIC_ACCOUNT_ID=seu_id_conta_newrelic
-DATADOG_API_KEY=sua_chave_api_datadog
-DATADOG_APP_KEY=sua_chave_app_datadog
-```
+3. Configure environment variables in `.env`:
 
-4. Execute as migrações do banco de dados:
+4. Run database migrations:
 ```bash
 alembic upgrade head
 ```
 
-5. Inicie a aplicação:
+5. Start the application:
 ```bash
 uvicorn main:app --reload
 ```
 
-## Uso
+## New Relic Setup
 
-### Consultar Métricas de Kubernetes
+### 1. API Key Configuration
 
+Configure the `.env` file with:
+```bash
+NEWRELIC_API_KEY=your_etl_key  # INGEST - LICENSE type key
+NEWRELIC_ACCOUNT_ID=your_account_id
+```
+
+### 2. Kubernetes Installation
+
+```bash
+# Remove previous installation (if exists)
+helm uninstall newrelic-bundle -n newrelic
+kubectl delete namespace newrelic
+
+# Create namespace
+kubectl create namespace newrelic
+
+# Install New Relic
+helm install newrelic-bundle newrelic/nri-bundle \
+  --set global.licenseKey=your_license_key \
+  --set global.cluster=minikube-cluster \
+  --namespace newrelic \
+  --set global.lowDataMode=true \
+  --set newrelic-infrastructure.privileged=true \
+  --set newrelic-infrastructure.kubernetesCrds.enabled=true \
+  --set newrelic-infrastructure.kubernetesMetrics.enabled=true \
+  --set kube-state-metrics.enabled=true \
+  --set kubeEvents.enabled=true \
+  --set prometheus.enabled=true \
+  --set logging.enabled=true
+```
+
+### 3. Installation Verification
+
+```bash
+# Verify running pods
+kubectl get pods -n newrelic
+```
+
+## Traffic Generation and Metric Collection
+
+### 1. Nginx Port Forward
+
+In one terminal:
+```bash
+kubectl port-forward svc/nginx-test 8080:80
+```
+
+### 2. Traffic Generator
+
+In another terminal:
+```bash
+python traffic-generator.py
+```
+
+### 3. ETL Execution
+
+After a few minutes of traffic generation:
+```bash
+python etl_newrelic.py
+```
+
+### Workflow
+
+1. Ensure New Relic is installed and running
+2. Start Nginx port-forward
+3. Run traffic generator
+4. Wait 3-5 minutes for New Relic to collect data
+5. Run ETL to process metrics
+
+### Data Verification
+
+To verify data collection:
+
+1. Check New Relic pods:
+```bash
+kubectl get pods -n newrelic
+```
+
+2. Check ETL logs:
+```bash
+python etl_newrelic.py
+```
+
+3. Query metrics via API:
 ```bash
 curl http://localhost:8000/nr/kubernetes
 ```
 
-### Gerar Relatório de Custos
+## Usage Examples
 
-```bash
-python kubernetes_cost_analysis.py
-```
-
-## Requisitos
-
-- Python 3.8+
-- PostgreSQL
-- New Relic API Key
-- DataDog API Key (opcional)
-
-## Exemplos de Integração
-
-### Exemplo de Consulta ao New Relic
+### New Relic Query Example
 
 ```python
 import requests
@@ -112,42 +176,168 @@ data = response.json()
 print(data)
 ```
 
-### Exemplo de Análise de Custos
+### Cost Analysis Example
 
 ```python
 import asyncio
 from kubernetes_cost_analysis import calculate_kubernetes_costs, generate_cost_charts
 
 async def analyze():
-    # Calcular custos das últimas 24 horas
+    # Calculate costs for the last 24 hours
     costs = await calculate_kubernetes_costs(hours=24)
-    print(f"Custo total: ${costs['total_cost']}")
+    print(f"Total cost: ${costs['total_cost']}")
     
-    # Gerar gráficos
+    # Generate charts
     await generate_cost_charts(hours=24, output_dir="./reports")
 
 if __name__ == "__main__":
     asyncio.run(analyze())
 ```
 
-## Próximos Passos
+## Cost Reports & Visualizations
 
-- Adicionar suporte para mais plataformas de observabilidade
-- Implementar alertas baseados em custos
-- Desenvolver dashboard web para visualização
-- Adicionar recomendações de otimização de recursos
+The system generates detailed cost analysis reports and visualizations to help understand resource usage and costs across your Kubernetes clusters.
 
-## Tecnologias
+### Generated Reports
+
+#### 1. Cost Distribution by Namespace
+<div align="center">
+  <img src="reports/cost_distribution_24h.png" alt="Cost Distribution" width="600"/>
+  <br>
+  <em>Pie chart showing the percentage of total costs per namespace</em>
+</div>
+
+**Features:**
+- Clear visualization of cost allocation
+- Helps identify resource-heavy namespaces
+- Shows cost percentage distribution
+
+#### 2. Total Cost by Namespace
+<div align="center">
+  <img src="reports/cost_by_namespace_24h.png" alt="Total Cost" width="600"/>
+  <br>
+  <em>Bar chart displaying absolute cost values per namespace</em>
+</div>
+
+**Features:**
+- Absolute cost values in dollars
+- Easy comparison between namespaces
+- Clear cost breakdown
+
+### Report Features
+
+<table>
+  <tr>
+    <th>Report Type</th>
+    <th>Description</th>
+    <th>Update Frequency</th>
+  </tr>
+  <tr>
+    <td>Cost Distribution</td>
+    <td>Percentage-based pie chart showing relative cost distribution</td>
+    <td>Every 24 hours</td>
+  </tr>
+  <tr>
+    <td>Total Cost</td>
+    <td>Bar chart showing absolute cost values</td>
+    <td>Every 24 hours</td>
+  </tr>
+  <tr>
+    <td>Trend Analysis</td>
+    <td>Line graph showing cost trends over time</td>
+    <td>Hourly</td>
+  </tr>
+  <tr>
+    <td>Resource Usage</td>
+    <td>Combined CPU/Memory usage patterns</td>
+    <td>Real-time</td>
+  </tr>
+</table>
+
+### Sample Report Output
+
+```json
+{
+  "report_timestamp": "2024-04-10T23:18:13.539",
+  "total_cost": "$2.39",
+  "namespace_distribution": {
+    "default": {
+      "cost": "$2.22",
+      "percentage": "92.9%"
+    },
+    "kube-system": {
+      "cost": "$0.12",
+      "percentage": "5.0%"
+    },
+    "newrelic": {
+      "cost": "$0.05",
+      "percentage": "2.1%"
+    }
+  }
+}
+```
+
+### Report Generation Commands
+
+```bash
+# Generate all reports
+python kubernetes_cost_analysis.py --report-type=all
+
+# Generate specific reports
+python kubernetes_cost_analysis.py --report-type=distribution
+python kubernetes_cost_analysis.py --report-type=total-cost
+
+# Customization options
+python kubernetes_cost_analysis.py \
+  --report-type=all \
+  --hours=48 \
+  --format=png \
+  --theme=dark \
+  --output-dir=./reports
+```
+
+### Report Storage & Integration
+
+📊 **Storage**
+- Reports saved in `./reports` directory
+- Organized by date and type
+- Configurable retention period
+
+🔗 **Integrations**
+- Slack notifications
+- Email reports
+- S3 backup
+- Custom webhooks
+
+⚡ **Alerts**
+```yaml
+alerts:
+  namespace_cost:
+    threshold: 100  # Dollars
+    period: 24h     # Time window
+    actions:
+      - slack
+      - email
+```
+## Requirements
+
+- Python 3.8+
+- PostgreSQL
+- New Relic API Key
+- DataDog API Key (optional)
+
+## Future Enhancements
+
+- Support for additional observability platforms
+- Cost-based alerting implementation
+- Web dashboard development
+- Resource optimization recommendations
+
+## Technologies
 
 - Python
 - FastAPI
-- SQLite
+- PostgreSQL
+- New Relic
+- Kubernetes
 
-## Instalação inicial
-
-Crie o ambiente virtual e instale as dependências:
-
-```bash
-python -m venv venv
-source venv/bin/activate
-pip install fastapi uvicorn requests python-dotenv sqlalchemy databases
