@@ -1,0 +1,92 @@
+# load-generator.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cpu-stress
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: cpu-stress
+  template:
+    metadata:
+      labels:
+        app: cpu-stress
+    spec:
+      containers:
+      - name: cpu-stress
+        image: containerstack/cpustress
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+        command: ["/bin/sh"]
+        args: ["-c", "stress --cpu 2 --io 1 --vm 1 --vm-bytes 128M --timeout 3600s"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-stress
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: memory-stress
+  template:
+    metadata:
+      labels:
+        app: memory-stress
+    spec:
+      containers:
+      - name: memory-stress
+        image: polinux/stress
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1"
+            memory: "2Gi"
+        command: ["/bin/sh"]
+        args: ["-c", "stress --vm 1 --vm-bytes 1G --vm-keep --timeout 3600s"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-generator
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: traffic-gen
+  template:
+    metadata:
+      labels:
+        app: traffic-gen
+    spec:
+      containers:
+      - name: traffic-gen
+        image: nginx
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traffic-service
+spec:
+  selector:
+    app: traffic-gen
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer

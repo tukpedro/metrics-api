@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: metricsdb
+    ports:
+      - "55432:5432"  # Externo:Interno
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: metrics123
+      POSTGRES_DB: metricsdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

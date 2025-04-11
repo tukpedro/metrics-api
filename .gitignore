@@ -1,0 +1,54 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+venv/
+env/
+.env/
+.venv/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Project specific
+reports/
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Project specific files to ignore
+demo.py
+kubecli
+minikube-linux-amd64
+test_cost_analysis.py
+kubectl
