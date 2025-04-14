@@ -12,9 +12,9 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 NEWRELIC_API_KEY = os.getenv("NEWRELIC_API_KEY")
-NEWRELIC_ACCOUNT_ID = os.getenv("NEWRELIC_ACCOUNT_ID", "6593256")  # Default value if not found in .env
+NEWRELIC_ACCOUNT_ID = os.getenv("NEWRELIC_ACCOUNT_ID", "6593256")  
 
-# Add this check after loading environment variables
+
 if not all([DATABASE_URL, NEWRELIC_API_KEY, NEWRELIC_ACCOUNT_ID]):
     print("Error: Environment variables not properly configured")
     print(f"DATABASE_URL: {'Configured' if DATABASE_URL else 'Not configured'}")
@@ -32,11 +32,11 @@ async def extract_kubernetes_metrics(hours_ago=6):
         "Content-Type": "application/json"
     }
     
-    # Converter horas para minutos
-    minutes_ago = int(hours_ago * 60)
-    minutes_interval = minutes_ago - 10  # 10 minutes before
     
-    # Two separate queries for CPU and memory
+    minutes_ago = int(hours_ago * 60)
+    minutes_interval = minutes_ago - 10  
+    
+    
     query = """
     {
       actor {
@@ -91,10 +91,10 @@ async def transform_metrics(data):
     metrics = []
     timestamp = datetime.datetime.now()
     
-    # At the beginning of transform_metrics function
+    
     print(f"Received data: {json.dumps(data, indent=2)}")
     
-    # Process CPU metrics
+    
     cpu_results = data['data']['actor']['account']['cpu']['results']
     for result in cpu_results:
         facets = result.get('facet', [])
@@ -117,10 +117,10 @@ async def transform_metrics(data):
                     })
                 })
     
-    # Before processing memory
+    
     print(f"Memory results: {json.dumps(data['data']['actor']['account']['memory']['results'], indent=2)}")
     
-    # Process memory metrics
+    
     memory_results = data['data']['actor']['account']['memory']['results']
     for result in memory_results:
         facets = result.get('facet', [])
@@ -151,7 +151,7 @@ async def load_metrics(metrics):
         return 0
     
     try:
-        # Inserir em lote
+        
         query = """
         INSERT INTO kubernetes_metrics (
             timestamp, cluster_name, namespace, pod_name, container_name,
@@ -173,7 +173,7 @@ async def etl_process(hours_ago=24):
     """Executes the complete ETL process"""
     print(f"\nStarting ETL for data from {hours_ago} hours ago...")
     
-    # Extract
+    
     print("Extracting data from New Relic...")
     data = await extract_kubernetes_metrics(hours_ago)
     
@@ -181,7 +181,7 @@ async def etl_process(hours_ago=24):
         print("No data to transform")
         return 0
     
-    # Transform
+    
     print("Transforming data...")
     metrics = await transform_metrics(data)
     
@@ -191,7 +191,7 @@ async def etl_process(hours_ago=24):
     
     print(f"Transformed data: {len(metrics)} metrics")
     
-    # Load
+    
     print("Loading data into database...")
     inserted = await load_metrics(metrics)
     
@@ -202,17 +202,17 @@ async def main():
     print("=== New Relic Kubernetes Metrics ETL ===")
     
     try:
-        # Conectar ao banco
+        
         await database.connect()
         print("Connected to database")
         
-        # Coletar dados em intervalos de 10 minutos para 6 horas
+        
         total_inserted = 0
-        intervals = 6 * 6  # 6 hours * 6 (10 minutes intervals) = 36 intervals
+        intervals = 6 * 6  
         
         for interval in range(intervals, 0, -1):
-            # Converter intervalo para horas
-            hours = interval / 6  # Converte intervalo de 10min para horas
+            
+            hours = interval / 6  
             inserted = await etl_process(hours_ago=hours)
             total_inserted += inserted
             
@@ -220,7 +220,7 @@ async def main():
             print(f"Progress: {intervals-interval}/{intervals} intervals processed")
             print(f"Period: {current_time.strftime('%Y-%m-%d %H:%M')}")
             
-            # Small pause to not overload the API
+            
             sleep(0.5)
         
         print(f"\nTotal records inserted: {total_inserted}")

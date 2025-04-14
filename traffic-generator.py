@@ -12,12 +12,12 @@ async def generate_traffic(session, url, request_id):
             print(f"Request {request_id} completed successfully - Status: {response.status}")
     except Exception as e:
         print(f"Error in request {request_id}: {str(e)}")
-        await asyncio.sleep(1)  # Espera 1 segundo em caso de erro
+        await asyncio.sleep(1)
 
 async def main():
-    # Usando localhost com port-forward
+
     service_url = "http://localhost:8080"
-    concurrent_requests = 10  # Reduzido para teste
+    concurrent_requests = 10
     
     print(f"Starting traffic generation at {datetime.now()}")
     print(f"Target URL: {service_url}")

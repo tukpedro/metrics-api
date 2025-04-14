@@ -16,17 +16,17 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 database = Database(DATABASE_URL)
 
-# Function to connect to the database
+
 async def connect_to_db():
     await database.connect()
     print("Connected to PostgreSQL database!")
 
-# Function to disconnect from the database
+
 async def disconnect_from_db():
     await database.disconnect()
     print("Disconnected from database!")
 
-# Function to get Kubernetes metrics from the database
+
 async def get_kubernetes_metrics(hours=24, metric_type=None):
     """
     Gets Kubernetes metrics from the database
@@ -54,7 +54,7 @@ async def get_kubernetes_metrics(hours=24, metric_type=None):
     )
     return result
 
-# Function to calculate approximate cost based on metrics
+
 async def calculate_kubernetes_costs(hours=24):
     """
     Calculates approximate costs based on Kubernetes metrics
@@ -64,14 +64,14 @@ async def calculate_kubernetes_costs(hours=24):
     """
     print("\nStarting cost calculation...")
     
-    # Cost definition per unit (fictional example)
+    
     costs = {
-        "cpu_core_hour": 0.031,  # $0.031 per core/hour (based on GKE/EKS prices)
-        "memory_gb_hour": 0.0042,  # $0.0042 per GB/hour (based on GKE/EKS prices)
+        "cpu_core_hour": 0.031,  
+        "memory_gb_hour": 0.0042,  
     }
     
     print("\nFetching memory data...")
-    # Get memory data
+    
     memory_data = await database.fetch_all(
         """
         SELECT 
@@ -92,7 +92,7 @@ async def calculate_kubernetes_costs(hours=24):
     
     print(f"Memory records found: {len(memory_data) if memory_data else 0}")
     
-    # Se não houver dados de memória, tentar usar apenas dados de CPU
+    
     if not memory_data:
         print("\nNo memory data found. Trying to calculate costs with CPU only...")
         cpu_only_data = await database.fetch_all(
@@ -125,7 +125,7 @@ async def calculate_kubernetes_costs(hours=24):
                 "total_cost": 0
             }
             
-        # Calcular custos apenas com CPU
+        
         results = []
         total_cost = 0
         namespace_costs = {}
@@ -133,31 +133,31 @@ async def calculate_kubernetes_costs(hours=24):
         for cpu_row in cpu_only_data:
             avg_cpu_cores = cpu_row['avg_cpu_cores'] or 0
             
-            # Calculate cost
+            
             cpu_cost = avg_cpu_cores * costs["cpu_core_hour"] * hours
             total_pod_cost = cpu_cost
             
-            # Add to results
+            
             pod_result = {
                 "cluster_name": cpu_row['cluster_name'],
                 "namespace": cpu_row['namespace'],
                 "pod_name": cpu_row['pod_name'],
                 "resources": {
                     "cpu_cores": avg_cpu_cores,
-                    "memory_gb": 0  # Não temos dados de memória
+                    "memory_gb": 0  
                 },
                 "costs": {
                     "cpu_cost": round(cpu_cost, 2),
-                    "memory_cost": 0,  # Não temos dados de memória
+                    "memory_cost": 0,  
                     "total_cost": round(total_pod_cost, 2)
                 }
             }
             results.append(pod_result)
             
-            # Update total cost
+            
             total_cost += total_pod_cost
             
-            # Update costs by namespace
+            
             namespace = cpu_row['namespace']
             if namespace not in namespace_costs:
                 namespace_costs[namespace] = {
@@ -169,18 +169,18 @@ async def calculate_kubernetes_costs(hours=24):
             namespace_costs[namespace]["cpu_cost"] += cpu_cost
             namespace_costs[namespace]["total_cost"] += total_pod_cost
         
-        # Format costs by namespace
+        
         namespace_summary = []
         for namespace, costs_data in namespace_costs.items():
             namespace_summary.append({
                 "namespace": namespace,
                 "cpu_cost": round(costs_data["cpu_cost"], 2),
-                "memory_cost": 0,  # Não temos dados de memória
+                "memory_cost": 0,  
                 "total_cost": round(costs_data["total_cost"], 2),
                 "percentage": round((costs_data["total_cost"] / total_cost) * 100, 2) if total_cost > 0 else 0
             })
         
-        # Ordenar por custo total
+        
         namespace_summary = sorted(namespace_summary, key=lambda x: x["total_cost"], reverse=True)
         
         return {
@@ -191,7 +191,7 @@ async def calculate_kubernetes_costs(hours=24):
             "total_cost": round(total_cost, 2)
         }
     
-    # Se temos dados de memória, continuar com o cálculo normal
+    
     print("\nCalculating costs with CPU and memory...")
     results = []
     total_cost = 0
@@ -199,7 +199,7 @@ async def calculate_kubernetes_costs(hours=24):
     
     for memory_row in memory_data:
         print(f"\nProcessing pod: {memory_row['pod_name']}")
-        # Find corresponding CPU data
+        
         cpu_data = await database.fetch_all(
             """
             SELECT 
@@ -222,7 +222,7 @@ async def calculate_kubernetes_costs(hours=24):
             }
         )
         
-        avg_memory_gb = memory_row['avg_memory_mb'] / 1024  # Convert MB to GB
+        avg_memory_gb = memory_row['avg_memory_mb'] / 1024  
         print(f"Average Memory: {avg_memory_gb:.2f} GB")
         
         avg_cpu_cores = 0
@@ -230,7 +230,7 @@ async def calculate_kubernetes_costs(hours=24):
             avg_cpu_cores = cpu_data[0]['avg_cpu_cores']
         print(f"Average CPU: {avg_cpu_cores:.2f} cores")
         
-        # Calculate cost
+        
         cpu_cost = avg_cpu_cores * costs["cpu_core_hour"] * hours
         memory_cost = avg_memory_gb * costs["memory_gb_hour"] * hours
         total_pod_cost = cpu_cost + memory_cost
@@ -239,7 +239,7 @@ async def calculate_kubernetes_costs(hours=24):
         print(f"Memory Cost: ${memory_cost:.2f}")
         print(f"Total Pod Cost: ${total_pod_cost:.2f}")
         
-        # Add to results
+        
         pod_result = {
             "cluster_name": memory_row['cluster_name'],
             "namespace": memory_row['namespace'],
@@ -256,10 +256,10 @@ async def calculate_kubernetes_costs(hours=24):
         }
         results.append(pod_result)
         
-        # Update total cost
+        
         total_cost += total_pod_cost
         
-        # Update costs by namespace
+        
         namespace = memory_row['namespace']
         if namespace not in namespace_costs:
             namespace_costs[namespace] = {
@@ -272,7 +272,7 @@ async def calculate_kubernetes_costs(hours=24):
         namespace_costs[namespace]["memory_cost"] += memory_cost
         namespace_costs[namespace]["total_cost"] += total_pod_cost
     
-    # Format costs by namespace
+    
     namespace_summary = []
     for namespace, costs_data in namespace_costs.items():
         namespace_summary.append({
@@ -283,7 +283,7 @@ async def calculate_kubernetes_costs(hours=24):
             "percentage": round((costs_data["total_cost"] / total_cost) * 100, 2) if total_cost > 0 else 0
         })
     
-    # Ordenar por custo total
+    
     namespace_summary = sorted(namespace_summary, key=lambda x: x["total_cost"], reverse=True)
     
     print(f"\nCalculation finished. Total cost: ${round(total_cost, 2)}")
@@ -296,7 +296,7 @@ async def calculate_kubernetes_costs(hours=24):
         "total_cost": round(total_cost, 2)
     }
 
-# Function to generate cost charts by namespace
+
 async def generate_cost_charts(hours=24, output_dir="./reports"):
     """
     Generates cost charts by namespace
@@ -307,15 +307,15 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
     """
     print("\nGenerating cost charts...")
     
-    # Create absolute path for output directory
+    
     output_dir = os.path.abspath(output_dir)
     
-    # Create directory if it doesn't exist
+    
     os.makedirs(output_dir, exist_ok=True)
     
     print(f"Output directory: {output_dir}")
     
-    # Get cost data
+    
     cost_data = await calculate_kubernetes_costs(hours)
     
     if not cost_data:
@@ -328,15 +328,15 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
     
     print(f"Found cost data for {len(cost_data['namespace_summary'])} namespaces")
     
-    # Create DataFrame for charts
+    
     df = pd.DataFrame(cost_data["namespace_summary"])
     
     try:
         print("\nGenerating total cost bar chart by namespace...")
-        # Configurações globais do matplotlib
-        plt.style.use('default')  # Usando estilo padrão ao invés de seaborn
         
-        # Configurações de fonte e tamanho
+        plt.style.use('default')  
+        
+        
         plt.rcParams.update({
             'font.size': 12,
             'font.family': 'sans-serif',
@@ -348,22 +348,22 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
             'figure.dpi': 100
         })
         
-        # Gráfico de Pizza (Cost Distribution)
+        
         plt.figure(figsize=(12, 8))
         
-        # Usar uma paleta de cores mais atraente
+        
         colors = ['#2E86C1', '#28B463', '#F1C40F', '#E67E22', '#CB4335', '#7D3C98']
         
-        # Calcular o total antes de formatar os labels
+        
         total = df["total_cost"].sum()
         
-        # Formatar labels para melhor legibilidade
+        
         labels = [
             f"{label}\n${value:.2f}\n{value/total*100:.1f}%"
             for label, value in zip(df["namespace"], df["total_cost"])
         ]
         
-        # Criar o gráfico de pizza com mais espaço para os labels
+        
         patches, texts, autotexts = plt.pie(
             df["total_cost"],
             labels=labels,
@@ -377,13 +377,13 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
             labeldistance=1.1
         )
         
-        # Ajustar o layout para evitar cortes
+        
         plt.axis('equal')
         
-        # Criar caixas de texto com linhas de conexão
+        
         bbox_props = dict(boxstyle="round,pad=0.3", fc="w", ec="gray", alpha=0.9)
         
-        # Calcular ângulos centrais das fatias para posicionar os labels
+        
         angles = []
         start_angle = 90
         for value in df["total_cost"]:
@@ -392,42 +392,42 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
             angles.append(np.radians(center_angle))
             start_angle -= angle
         
-        # Ajustar a posição dos textos baseado no ângulo da fatia
+        
         for i, (text, angle) in enumerate(zip(texts, angles)):
-            # Calcular a posição radial com ajuste de raio baseado no tamanho da fatia
+            
             value = df["total_cost"].iloc[i]
             percentage = value / total
             namespace = df["namespace"].iloc[i]
             
-            # Ajustar raio baseado no tamanho da fatia e namespace
-            if percentage > 0.5:  # Para fatias grandes
+            
+            if percentage > 0.5:  
                 radius = 0.8
-            elif namespace == "newrelic":  # Ajuste específico para newrelic
+            elif namespace == "newrelic":  
                 radius = 1.5
-                angle = np.radians(45)  # Forçar ângulo para 45 graus (mais à direita)
-            elif percentage > 0.1:  # Para fatias médias
+                angle = np.radians(45)  
+            elif percentage > 0.1:  
                 radius = 1.4
-            else:  # Para fatias pequenas
+            else:  
                 radius = 1.2
             
-            # Calcular posição
+            
             x = np.cos(angle) * radius
             y = np.sin(angle) * radius
             
-            # Ajustar alinhamento baseado na posição
+            
             if x < 0:
                 text.set_horizontalalignment('right')
             else:
                 text.set_horizontalalignment('left')
             
-            # Ajustar posição vertical para evitar sobreposição
-            if abs(y) < 0.2 and namespace != "newrelic":  # Não ajustar verticalmente para newrelic
+            
+            if abs(y) < 0.2 and namespace != "newrelic":  
                 y += 0.2 * (1 if y >= 0 else -1)
             
             text.set_position((x, y))
             text.set_bbox(bbox_props)
         
-        # Remover os autotexts (porcentagens) que estão sobrepostos
+        
         for autotext in autotexts:
             autotext.set_visible(False)
         
@@ -437,12 +437,12 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
             fontweight='bold'
         )
         
-        # Salvar gráfico de pizza
+        
         chart1_path = os.path.join(output_dir, f"cost_distribution_{hours}h.png")
         plt.savefig(chart1_path, bbox_inches='tight', dpi=100)
         plt.close()
         
-        # Gráfico de Barras (Total Cost)
+        
         plt.figure()
         bars = plt.bar(
             range(len(df["namespace"])),
@@ -451,7 +451,7 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
             width=0.7
         )
         
-        # Adicionar valores no topo das barras
+        
         for bar in bars:
             height = bar.get_height()
             plt.text(
@@ -481,7 +481,7 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
         plt.ylabel("Cost ($)", labelpad=10, fontweight='bold')
         plt.grid(True, linestyle='--', alpha=0.7)
         
-        # Salvar gráfico de barras
+        
         chart2_path = os.path.join(output_dir, f"cost_by_namespace_{hours}h.png")
         plt.savefig(chart2_path, bbox_inches='tight', dpi=100)
         plt.close()
@@ -500,12 +500,12 @@ async def generate_cost_charts(hours=24, output_dir="./reports"):
         print(f"Error generating charts: {str(e)}")
         return None
     finally:
-        plt.close('all')  # Clean up all plots
+        plt.close('all')  
 
-# Main function to run the analysis
+
 async def main():
     try:
-        # Connect to database
+        
         await connect_to_db()
         
         print("Calculating Kubernetes costs...")
@@ -523,9 +523,9 @@ async def main():
         print("\nAnalysis complete!")
     
     finally:
-        # Disconnect from database
+        
         await disconnect_from_db()
 
-# Run script
+
 if __name__ == "__main__":
     asyncio.run(main()) 
