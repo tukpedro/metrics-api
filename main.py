@@ -16,11 +16,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 DATADOG_API_KEY = os.getenv("DATADOG_API_KEY")
 DATADOG_APP_KEY = os.getenv("DATADOG_APP_KEY")
 NEWRELIC_API_KEY = os.getenv("NEWRELIC_API_KEY")
-NEWRELIC_ACCOUNT_ID = "6593256"  # Usando o valor do seu comando de instalação
+NEWRELIC_ACCOUNT_ID = "6593256"  
 
 database = Database(DATABASE_URL)
 
-# Constante com o GUID correto do host
+
 TUKSTATION_ENTITY_GUID = "NjU5MzI1NnxJTkZSQXxOQXwzNTE5MDI0NDc4NjQxMzMzNzMx"
 
 @asynccontextmanager
@@ -41,7 +41,7 @@ async def root():
     """
     Página principal que lista todos os endpoints disponíveis.
     """
-    # URL base para acessar a API
+    
     base_url = "http://localhost:8000"
     
     endpoints = {
@@ -118,7 +118,7 @@ async def root():
         ]
     }
     
-    # Informações do servidor
+    
     server_info = {
         "api_version": "1.0.0",
         "datadog_configured": bool(DATADOG_API_KEY),
@@ -142,7 +142,7 @@ async def fetch_datadog_metrics():
         headers = {
             "Accept": "application/json",
             "DD-API-KEY": DATADOG_API_KEY,
-            # "DD-APPLICATION-KEY": DATADOG_APP_KEY,
+            
         }
 
         params = {
@@ -195,7 +195,7 @@ async def fetch_datadog_metrics():
             "Content-Type": "application/json"
         }
 
-        # Usando GraphQL para consultar métricas de memória
+        
         graphql_query = """
         {
           actor {
@@ -216,14 +216,14 @@ async def fetch_datadog_metrics():
         response.raise_for_status()
         data = response.json()
 
-        # Extraindo o valor da métrica da resposta GraphQL
+        
         value = 0.0
         if "data" in data and "actor" in data["data"] and "account" in data["data"]["actor"]:
             results = data["data"]["actor"]["account"]["nrql"]["results"]
             if len(results) > 0 and "average.host.memoryUsedPercent" in results[0]:
                 value = results[0]["average.host.memoryUsedPercent"]
 
-        # Inserindo na base de dados
+        
         query = metrics.insert().values(
             platform="NewRelic", metric_name="host.memoryUsedPercent", value=value
         )
@@ -255,7 +255,7 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
             "Content-Type": "application/json"
         }
 
-        # NRQL que especifica o hostname exato
+        
         account_query = """
         {
           actor {
@@ -288,7 +288,7 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
         response.raise_for_status()
         data = response.json()
         
-        # Verificar se a estrutura da resposta está completa
+        
         if not data or "data" not in data:
             return {
                 "error": "Resposta da API inválida",
@@ -303,7 +303,7 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
             
         account_data = data.get("data", {}).get("actor", {}).get("account", {})
         
-        # Criar estrutura de resultado
+        
         result = {
             "platform": "NewRelic",
             "hostname": hostname,
@@ -317,7 +317,7 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
             }
         }
         
-        # Processar métricas do sistema com verificações de segurança
+        
         system_results = []
         if account_data.get("system") and isinstance(account_data.get("system"), dict):
             system_results = account_data.get("system", {}).get("results", [])
@@ -330,7 +330,7 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
             ]:
                 if key in system_results[0]:
                     value = system_results[0].get(key)
-                    # Registrar no banco de dados se o valor não for None
+                    
                     if value is not None:
                         try:
                             await database.execute(
@@ -344,7 +344,7 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
                         except Exception as e:
                             result["metrics"]["system"][key] = f"Erro: {str(e)}"
 
-        # Processar métricas de rede com verificações de segurança
+        
         network_results = []
         if account_data.get("network") and isinstance(account_data.get("network"), dict):
             network_results = account_data.get("network", {}).get("results", [])
@@ -356,7 +356,7 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
             ]:
                 if key in network_results[0]:
                     value = network_results[0].get(key)
-                    # Registrar no banco de dados se o valor não for None
+                    
                     if value is not None:
                         try:
                             await database.execute(
@@ -370,7 +370,7 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
                         except Exception as e:
                             result["metrics"]["network"][key.replace("network_", "")] = f"Erro: {str(e)}"
         
-        # Processar contagem de processos com verificações de segurança
+        
         processes_results = []
         if account_data.get("processes") and isinstance(account_data.get("processes"), dict):
             processes_results = account_data.get("processes", {}).get("results", [])
@@ -391,7 +391,7 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
                     except Exception as e:
                         result["metrics"]["processes"]["count"] = f"Erro: {str(e)}"
                     
-        # Processar detalhes dos discos com verificações de segurança
+        
         disk_results = []
         if account_data.get("diskDetails") and isinstance(account_data.get("diskDetails"), dict):
             disk_results = account_data.get("diskDetails", {}).get("results", [])
@@ -405,10 +405,10 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
                             "usedPercent": disk.get("diskUsedPercent")
                         })
                     except Exception as e:
-                        # Apenas continue se houver um erro com um disco específico
+                        
                         pass
                     
-        # Processar top processos com verificações de segurança
+        
         top_processes = []
         if account_data.get("topProcesses") and isinstance(account_data.get("topProcesses"), dict):
             top_processes = account_data.get("topProcesses", {}).get("results", [])
@@ -427,15 +427,15 @@ async def fetch_newrelic_all(hostname: str = "TUKSTATION"):
                             "memory_mb": memory_mb
                         })
                     except Exception as e:
-                        # Apenas continue se houver um erro com um processo específico
+                        
                         pass
 
-        # Verificar se temos algum dado
+        
         if (not result["metrics"]["system"] and 
             not result["metrics"]["network"] and 
             not result["metrics"]["disks"] and 
             not result["metrics"]["top_processes"]):
-            # Se não temos dados, vamos tentar uma query mais simples
+            
             simple_query = """
             {
               actor {
@@ -490,7 +490,7 @@ async def test_newrelic_connection():
             "Content-Type": "application/json"
         }
         
-        # Uma consulta GraphQL simples para testar a conexão
+        
         graphql_query = """
         {
           actor {
@@ -508,7 +508,7 @@ async def test_newrelic_connection():
             json={"query": graphql_query}
         )
         
-        # Verificar resposta
+        
         if response.status_code == 200:
             data = response.json()
             if "data" in data and "actor" in data["data"] and "user" in data["data"]["actor"]:
@@ -561,7 +561,7 @@ async def test_newrelic_agent():
             "Content-Type": "application/json"
         }
         
-        # Consulta GraphQL para verificar o host
+        
         graphql_query = """
         {
           actor {
@@ -589,7 +589,7 @@ async def test_newrelic_agent():
             
         data = response.json()
         
-        # Verificar se temos dados do host
+        
         host_data = {}
         if ("data" in data and "actor" in data["data"] and 
             "account" in data["data"]["actor"] and "system" in data["data"]["actor"]["account"] and 
@@ -600,7 +600,7 @@ async def test_newrelic_agent():
                 host_data = results[0]
         
         if not host_data:
-            # Se não encontrou pelo GUID, tenta buscar usando o nome do host
+            
             backup_query = """
             {
               actor {
@@ -629,7 +629,7 @@ async def test_newrelic_agent():
                     if results and len(results) > 0:
                         host_data = results[0]
         
-        # Verificar status da API e do agente
+        
         if host_data:
             return {
                 "status": "success",
@@ -687,7 +687,7 @@ async def get_newrelic_cpu():
             "Content-Type": "application/json"
         }
 
-        # Query para dados de CPU usando entityGuid fornecido
+        
         query = """
         {
           actor {
@@ -724,7 +724,7 @@ async def get_newrelic_cpu():
             
         data = response.json()
         
-        # Processar os resultados
+        
         result = {
             "timestamp": __import__("datetime").datetime.now().isoformat(),
             "entity_guid": TUKSTATION_ENTITY_GUID,
@@ -738,17 +738,17 @@ async def get_newrelic_cpu():
             }
         }
         
-        # Extrair CPU atual
+        
         if "data" in data and "actor" in data["data"]:
             account = data["data"]["actor"]["account"]
             
-            # Valor atual de CPU
+            
             if "current" in account and "results" in account["current"]:
                 current_results = account["current"]["results"]
                 if current_results and len(current_results) > 0:
                     result["cpu"]["current"] = current_results[0].get("current_cpu")
                     
-                    # Salvar no banco de dados
+                    
                     if result["cpu"]["current"] is not None:
                         try:
                             await database.execute(
@@ -761,13 +761,13 @@ async def get_newrelic_cpu():
                         except Exception as e:
                             result["db_error"] = str(e)
             
-            # Número de cores
+            
             if "cores" in account and "results" in account["cores"]:
                 cores_results = account["cores"]["results"]
                 if cores_results and len(cores_results) > 0:
                     result["cpu"]["cores"] = cores_results[0].get("latest.coreCount")
             
-            # Histórico de CPU
+            
             if "history" in account and "results" in account["history"]:
                 history_results = account["history"]["results"]
                 result["cpu"]["history"] = [
@@ -779,7 +779,7 @@ async def get_newrelic_cpu():
                     if "beginTimeSeconds" in point and "cpu_used" in point
                 ]
                 
-                # Calcular estatísticas
+                
                 if result["cpu"]["history"]:
                     values = [point["value"] for point in result["cpu"]["history"] if point["value"] is not None]
                     if values:
@@ -789,7 +789,7 @@ async def get_newrelic_cpu():
                             "max": max(values)
                         }
             
-            # Histórico de carga média
+            
             if "loadAverage" in account and "results" in account["loadAverage"]:
                 load_results = account["loadAverage"]["results"]
                 for point in load_results:
@@ -822,7 +822,7 @@ async def get_newrelic_memory():
             "Content-Type": "application/json"
         }
 
-        # Query para dados de memória usando entityGuid fornecido
+        
         query = """
         {
           actor {
@@ -853,7 +853,7 @@ async def get_newrelic_memory():
             
         data = response.json()
         
-        # Processar os resultados
+        
         result = {
             "timestamp": __import__("datetime").datetime.now().isoformat(),
             "entity_guid": TUKSTATION_ENTITY_GUID,
@@ -865,11 +865,11 @@ async def get_newrelic_memory():
             }
         }
         
-        # Extrair dados de memória
+        
         if "data" in data and "actor" in data["data"]:
             account = data["data"]["actor"]["account"]
             
-            # Valores atuais de memória
+            
             if "current" in account and "results" in account["current"]:
                 current_results = account["current"]["results"]
                 if current_results and len(current_results) > 0:
@@ -877,11 +877,11 @@ async def get_newrelic_memory():
                     result["memory"]["total_gb"] = current_results[0].get("total_gb")
                     result["memory"]["free_gb"] = current_results[0].get("free_gb")
                     
-                    # Calcular memória usada em GB
+                    
                     if result["memory"]["total_gb"] is not None and result["memory"]["free_gb"] is not None:
                         result["memory"]["used_gb"] = result["memory"]["total_gb"] - result["memory"]["free_gb"]
                     
-                    # Salvar no banco de dados
+                    
                     if result["memory"]["current_percent"] is not None:
                         try:
                             await database.execute(
@@ -894,7 +894,7 @@ async def get_newrelic_memory():
                         except Exception as e:
                             result["db_error"] = str(e)
             
-            # Histórico de memória
+            
             if "history" in account and "results" in account["history"]:
                 history_results = account["history"]["results"]
                 result["memory"]["history"] = [
@@ -906,7 +906,7 @@ async def get_newrelic_memory():
                     if "beginTimeSeconds" in point and "memory_used" in point
                 ]
                 
-                # Calcular estatísticas
+                
                 if result["memory"]["history"]:
                     values = [point["value"] for point in result["memory"]["history"] if point["value"] is not None]
                     if values:
@@ -932,7 +932,7 @@ async def get_newrelic_disk():
     Inclui fallbacks para garantir que os discos sejam detectados mesmo quando o agente não reporta dados.
     """
     try:
-        # Importar bibliotecas necessárias
+        
         import os
         import platform
         import string
@@ -944,7 +944,7 @@ async def get_newrelic_disk():
             "Content-Type": "application/json"
         }
 
-        # Query aprimorada para dados de disco usando entityGuid fornecido
+        
         query = """
         {
           actor {
@@ -997,7 +997,7 @@ async def get_newrelic_disk():
             
         data = response.json()
         
-        # Processar os resultados
+        
         result = {
             "timestamp": __import__("datetime").datetime.now().isoformat(),
             "entity_guid": TUKSTATION_ENTITY_GUID,
@@ -1009,18 +1009,18 @@ async def get_newrelic_disk():
             "status": "success"
         }
         
-        # Flag para rastrear se conseguimos obter dados de disco
+        
         has_disk_data = False
         
-        # Extrair dados de disco
+        
         if "data" in data and "actor" in data["data"] and "account" in data["data"]["actor"]:
             account = data["data"]["actor"]["account"]
             
-            # Lista de unidades/dispositivos
+            
             devices_set = set()
             mount_points = set()
             
-            # Verificar lista de dispositivos disponíveis
+            
             if "all_devices" in account and "results" in account["all_devices"]:
                 device_results = account["all_devices"]["results"]
                 if device_results and len(device_results) > 0:
@@ -1034,7 +1034,7 @@ async def get_newrelic_disk():
                         if isinstance(mounts_list, list):
                             mount_points.update(mounts_list)
             
-            # Buscar dados de uso atual por dispositivo
+            
             if "current" in account and "results" in account["current"] and "facets" in account["current"]:
                 current_results = account["current"]["results"]
                 facets = account["current"]["facets"]
@@ -1056,7 +1056,7 @@ async def get_newrelic_disk():
                         result["disks"].append(disk_info)
                         has_disk_data = True
                         
-                        # Salvar no banco de dados
+                        
                         if disk_info["used_percent"] is not None:
                             try:
                                 await database.execute(
@@ -1067,9 +1067,9 @@ async def get_newrelic_disk():
                                     )
                                 )
                             except Exception as e:
-                                pass  # Ignorar erros de BD para múltiplos discos
+                                pass  
             
-            # Adicionar detalhes por dispositivo (total, usado, livre)
+            
             if "details" in account and "results" in account["details"] and "facets" in account["details"]:
                 details_results = account["details"]["results"]
                 facets = account["details"]["facets"]
@@ -1083,7 +1083,7 @@ async def get_newrelic_disk():
                         if mount_point:
                             mount_points.add(mount_point)
                         
-                        # Encontrar o disco na lista ou criar um novo
+                        
                         disk_info = next((d for d in result["disks"] if d["device"] == device), None)
                         if disk_info is None:
                             disk_info = {
@@ -1095,16 +1095,16 @@ async def get_newrelic_disk():
                         elif not disk_info.get("mount_point") and mount_point:
                             disk_info["mount_point"] = mount_point
                         
-                        # Adicionar detalhes
+                        
                         disk_info["total_gb"] = details_results[i].get("total_gb")
                         disk_info["free_gb"] = details_results[i].get("free_gb") 
                         disk_info["used_gb"] = details_results[i].get("used_gb")
                         
-                        # Calcular porcentagem se não estiver disponível
+                        
                         if disk_info.get("used_percent") is None and disk_info.get("total_gb") and disk_info.get("used_gb"):
                             disk_info["used_percent"] = (disk_info["used_gb"] / disk_info["total_gb"]) * 100
             
-            # Adicionar dados de I/O
+            
             if "io" in account and "results" in account["io"] and "facets" in account["io"]:
                 io_results = account["io"]["results"]
                 facets = account["io"]["facets"]
@@ -1114,19 +1114,19 @@ async def get_newrelic_disk():
                         device = facet[0]
                         devices_set.add(device)
                         
-                        # Encontrar o disco na lista ou criar um novo
+                        
                         disk_info = next((d for d in result["disks"] if d["device"] == device), None)
                         if disk_info is None:
                             disk_info = {"device": device}
                             result["disks"].append(disk_info)
                             has_disk_data = True
                         
-                        # Adicionar dados de I/O
+                        
                         disk_info["io_percent"] = io_results[i].get("io_percent")
                         disk_info["read_mbps"] = io_results[i].get("read_mbps")
                         disk_info["write_mbps"] = io_results[i].get("write_mbps")
             
-            # Fallback 1: Tentar dados do SystemSample se não tivermos StorageSample
+            
             if not has_disk_data and "system_disks" in account and "results" in account["system_disks"] and "facets" in account["system_disks"]:
                 system_results = account["system_disks"]["results"]
                 facets = account["system_disks"]["facets"]
@@ -1136,7 +1136,7 @@ async def get_newrelic_disk():
                         mount_point = facet[0]
                         mount_points.add(mount_point)
                         
-                        # Extrair letra de unidade para Windows (C:, D:, etc.)
+                        
                         device = mount_point
                         if mount_point and ":" in mount_point:
                             device = mount_point.split(":")[0] + ":"
@@ -1153,7 +1153,7 @@ async def get_newrelic_disk():
                             "free_gb": free_gb
                         }
                         
-                        # Calcular espaço usado e porcentagem
+                        
                         if total_gb is not None and free_gb is not None:
                             used_gb = total_gb - free_gb
                             disk_info["used_gb"] = used_gb
@@ -1162,7 +1162,7 @@ async def get_newrelic_disk():
                         result["disks"].append(disk_info)
                         has_disk_data = True
             
-            # Fallback 2: Tentar métricas específicas do Windows se ainda não tivermos dados
+            
             if not has_disk_data and "windows_disks" in account and "results" in account["windows_disks"] and "facets" in account["windows_disks"]:
                 windows_results = account["windows_disks"]["results"]
                 facets = account["windows_disks"]["facets"]
@@ -1172,7 +1172,7 @@ async def get_newrelic_disk():
                         mount_point = facet[0]
                         mount_points.add(mount_point)
                         
-                        # Extrair letra de unidade para Windows (C:, D:, etc.)
+                        
                         device = mount_point
                         if mount_point and ":" in mount_point:
                             device = mount_point.split(":")[0] + ":"
@@ -1189,7 +1189,7 @@ async def get_newrelic_disk():
                             "used_gb": used_gb
                         }
                         
-                        # Calcular espaço total e porcentagem
+                        
                         if free_gb is not None and used_gb is not None:
                             total_gb = free_gb + used_gb
                             disk_info["total_gb"] = total_gb
@@ -1198,7 +1198,7 @@ async def get_newrelic_disk():
                         result["disks"].append(disk_info)
                         has_disk_data = True
             
-            # Histórico de uso geral de disco
+            
             if "history" in account and "results" in account["history"]:
                 history_results = account["history"]["results"]
                 result["history"]["overall"] = [
@@ -1210,7 +1210,7 @@ async def get_newrelic_disk():
                     if "beginTimeSeconds" in point and "disk_used" in point
                 ]
             
-            # Adicionar dispositivos e pontos de montagem detectados
+            
             if not has_disk_data and devices_set:
                 for device in devices_set:
                     result["disks"].append({
@@ -1221,7 +1221,7 @@ async def get_newrelic_disk():
             
             if not has_disk_data and mount_points:
                 for mount in mount_points:
-                    # Extrair letra de unidade para Windows (C:, D:, etc.)
+                    
                     device = mount
                     if mount and ":" in mount:
                         device = mount.split(":")[0] + ":"
@@ -1233,12 +1233,12 @@ async def get_newrelic_disk():
                     })
                     has_disk_data = True
         
-        # Fallback 3: Se ainda não temos dados, usar uma abordagem direta do sistema operacional
+        
         if not has_disk_data:
-            # Para Windows
+            
             if platform.system() == "Windows":
                 try:
-                    # Usar letra de unidades para Windows
+                    
                     drives = []
                     for letter in string.ascii_uppercase:
                         drive_path = f"{letter}:"
@@ -1257,7 +1257,7 @@ async def get_newrelic_disk():
                         except:
                             pass
                     
-                    # Se isso não funcionar, tentar wmic
+                    
                     if not drives:
                         try:
                             output = subprocess.check_output("wmic logicaldisk get deviceid, freespace, size", shell=True).decode()
@@ -1292,10 +1292,10 @@ async def get_newrelic_disk():
                 except Exception as e:
                     result["windows_error"] = str(e)
             
-            # Para Linux
+            
             elif platform.system() == "Linux":
                 try:
-                    # Usar df para verificar partições
+                    
                     output = subprocess.check_output("df -h", shell=True).decode()
                     lines = output.strip().split('\n')[1:]
                     drives = []
@@ -1307,9 +1307,9 @@ async def get_newrelic_disk():
                                 device = parts[0]
                                 mount_point = parts[5]
                                 
-                                # Ignorar sistemas de arquivos virtuais
+                                
                                 if device.startswith("/dev/") or device.startswith("/dev/mapper/"):
-                                    # Usar shutil para dados precisos
+                                    
                                     try:
                                         total, used, free = __import__("shutil").disk_usage(mount_point)
                                         drives.append({
@@ -1322,20 +1322,20 @@ async def get_newrelic_disk():
                                             "source": "os_module"
                                         })
                                     except:
-                                        # Fallback para parse de df se shutil falhar
+                                        
                                         size = parts[1]
                                         used = parts[2]
                                         avail = parts[3]
                                         used_percent = parts[4].replace("%", "")
                                         
-                                        # Converter para bytes removendo sufixos como G, M, T
+                                        
                                         def parse_size(size_str):
                                             if not size_str:
                                                 return None
                                             multipliers = {'K': 1024, 'M': 1024**2, 'G': 1024**3, 'T': 1024**4}
                                             size_str = size_str.upper()
                                             if size_str[-1] in multipliers:
-                                                return float(size_str[:-1]) * multipliers[size_str[-1]] / (1024**3)  # Convert to GB
+                                                return float(size_str[:-1]) * multipliers[size_str[-1]] / (1024**3)  
                                             return float(size_str) / (1024**3)
                                         
                                         drives.append({
@@ -1357,7 +1357,7 @@ async def get_newrelic_disk():
                 except Exception as e:
                     result["linux_error"] = str(e)
         
-        # Incluir estatísticas agregadas se temos dados de disco
+        
         if result["disks"]:
             try:
                 total_space_gb = 0
@@ -1411,7 +1411,7 @@ async def get_newrelic_network():
             "Content-Type": "application/json"
         }
 
-        # Query para dados de rede usando entityGuid fornecido
+        
         query = """
         {
           actor {
@@ -1450,7 +1450,7 @@ async def get_newrelic_network():
             
         data = response.json()
         
-        # Processar os resultados
+        
         result = {
             "timestamp": __import__("datetime").datetime.now().isoformat(),
             "entity_guid": TUKSTATION_ENTITY_GUID,
@@ -1459,11 +1459,11 @@ async def get_newrelic_network():
             "status": "success"
         }
         
-        # Extrair dados de rede
+        
         if "data" in data and "actor" in data["data"] and "account" in data["data"]["actor"]:
             account = data["data"]["actor"]["account"]
             
-            # Verificar se temos dados de sistema gerais
+            
             if "system_overview" in account and "results" in account["system_overview"]:
                 overview_results = account["system_overview"]["results"]
                 if overview_results and len(overview_results) > 0:
@@ -1472,7 +1472,7 @@ async def get_newrelic_network():
                         "total_rx_mbps": overview_results[0].get("rx_mbps")
                     }
             
-            # Tráfego atual por interface
+            
             if "current" in account and "results" in account["current"] and "facets" in account["current"]:
                 current_results = account["current"]["results"]
                 facets = account["current"]["facets"]
@@ -1486,7 +1486,7 @@ async def get_newrelic_network():
                             "rx_bps": current_results[i].get("rx_bps")
                         }
                         
-                        # Calcular taxa em MB/s para facilitar leitura
+                        
                         if interface_info["tx_bps"] is not None:
                             interface_info["tx_mbps"] = interface_info["tx_bps"] / 1024 / 1024
                         if interface_info["rx_bps"] is not None:
@@ -1494,7 +1494,7 @@ async def get_newrelic_network():
                         
                         result["interfaces"].append(interface_info)
                         
-                        # Salvar no banco de dados
+                        
                         if interface_info["tx_bps"] is not None:
                             try:
                                 await database.execute(
@@ -1519,7 +1519,7 @@ async def get_newrelic_network():
                             except Exception as e:
                                 pass
             
-            # Detalhes adicionais por interface (erros, pacotes)
+            
             if "details" in account and "results" in account["details"] and "facets" in account["details"]:
                 details_results = account["details"]["results"]
                 facets = account["details"]["facets"]
@@ -1528,19 +1528,19 @@ async def get_newrelic_network():
                     if i < len(details_results):
                         interface_name = facet[0]
                         
-                        # Encontrar a interface na lista ou criar uma nova
+                        
                         interface_info = next((intf for intf in result["interfaces"] if intf["name"] == interface_name), None)
                         if interface_info is None:
                             interface_info = {"name": interface_name}
                             result["interfaces"].append(interface_info)
                         
-                        # Adicionar detalhes
+                        
                         interface_info["tx_drops"] = details_results[i].get("tx_drops")
                         interface_info["rx_drops"] = details_results[i].get("rx_drops")
                         interface_info["tx_errors"] = details_results[i].get("tx_errors")
                         interface_info["rx_errors"] = details_results[i].get("rx_errors")
             
-            # Histórico de tráfego
+            
             if "history" in account and "results" in account["history"]:
                 history_results = account["history"]["results"]
                 result["history"] = [
@@ -1553,25 +1553,25 @@ async def get_newrelic_network():
                     if "beginTimeSeconds" in point
                 ]
                 
-                # Adicionar versão em MB/s para facilitar leitura
+                
                 for point in result["history"]:
                     if point["tx_bps"] is not None:
                         point["tx_mbps"] = point["tx_bps"] / 1024 / 1024
                     if point["rx_bps"] is not None:
                         point["rx_mbps"] = point["rx_bps"] / 1024 / 1024
         
-        # Se não temos interfaces, adicione uma mensagem explicativa
+        
         if not result["interfaces"]:
             result["status"] = "warning"
             result["message"] = "Nenhuma interface de rede encontrada. O agente New Relic pode não estar configurado para coletar métricas de rede."
             
-            # Adicionar diagnóstico manual para Windows
+            
             import platform
             if platform.system() == "Windows":
                 try:
                     import subprocess
 
-                    # Tentar obter informações básicas de rede do sistema
+                    
                     network_info = subprocess.check_output("ipconfig", shell=True).decode('utf-8', errors='ignore')
                     if network_info:
                         result["system_network_info"] = {
@@ -1603,7 +1603,7 @@ async def get_newrelic_processes():
             "Content-Type": "application/json"
         }
 
-        # Query para dados de processos usando entityGuid fornecido
+        
         query = """
         {
           actor {
@@ -1639,7 +1639,7 @@ async def get_newrelic_processes():
             
         data = response.json()
         
-        # Processar os resultados
+        
         result = {
             "timestamp": __import__("datetime").datetime.now().isoformat(),
             "entity_guid": TUKSTATION_ENTITY_GUID,
@@ -1651,18 +1651,18 @@ async def get_newrelic_processes():
             "top_by_memory": []
         }
         
-        # Extrair dados de processos
+        
         if "data" in data and "actor" in data["data"]:
             account = data["data"]["actor"]["account"]
             
-            # Resumo de processos
+            
             if "summary" in account and "results" in account["summary"]:
                 summary_results = account["summary"]["results"]
                 if summary_results and len(summary_results) > 0:
                     result["summary"]["total_processes"] = summary_results[0].get("process_count")
                     result["summary"]["unique_processes"] = summary_results[0].get("unique_processes")
             
-            # Top processos por CPU
+            
             if "top_cpu" in account and "results" in account["top_cpu"] and "facets" in account["top_cpu"]:
                 cpu_results = account["top_cpu"]["results"]
                 facets = account["top_cpu"]["facets"]
@@ -1682,7 +1682,7 @@ async def get_newrelic_processes():
                         
                         result["top_by_cpu"].append(process_info)
             
-            # Top processos por memória
+            
             if "top_memory" in account and "results" in account["top_memory"] and "facets" in account["top_memory"]:
                 memory_results = account["top_memory"]["results"]
                 facets = account["top_memory"]["facets"]
@@ -1702,7 +1702,7 @@ async def get_newrelic_processes():
                         
                         result["top_by_memory"].append(process_info)
             
-            # Salvar dados resumidos no banco
+            
             try:
                 if result["summary"]["total_processes"] is not None:
                     await database.execute(
@@ -1713,7 +1713,7 @@ async def get_newrelic_processes():
                         )
                     )
                 
-                # Salvar top processo por CPU
+                
                 if result["top_by_cpu"] and len(result["top_by_cpu"]) > 0 and result["top_by_cpu"][0]["cpu_percent"] is not None:
                     await database.execute(
                         metrics.insert().values(
@@ -1746,7 +1746,7 @@ async def get_newrelic_dashboard():
             "Content-Type": "application/json"
         }
 
-        # Query completa para dashboard usando entityGuid fornecido
+        
         query = """
         {
           actor {
@@ -1795,7 +1795,7 @@ async def get_newrelic_dashboard():
             
         data = response.json()
         
-        # Processar os resultados
+        
         result = {
             "timestamp": __import__("datetime").datetime.now().isoformat(),
             "entity_guid": TUKSTATION_ENTITY_GUID,
@@ -1812,11 +1812,11 @@ async def get_newrelic_dashboard():
             }
         }
         
-        # Extrair todos os dados
+        
         if "data" in data and "actor" in data["data"]:
             account = data["data"]["actor"]["account"]
             
-            # Informações do host
+            
             if "host" in account and "results" in account["host"]:
                 host_results = account["host"]["results"]
                 if host_results and len(host_results) > 0:
@@ -1828,7 +1828,7 @@ async def get_newrelic_dashboard():
                         "last_report": host_results[0].get("last_report")
                     }
             
-            # CPU
+            
             if "cpu" in account and "results" in account["cpu"]:
                 cpu_results = account["cpu"]["results"]
                 if cpu_results and len(cpu_results) > 0:
@@ -1837,7 +1837,7 @@ async def get_newrelic_dashboard():
                         "cores": cpu_results[0].get("cores")
                     }
             
-            # Memória
+            
             if "memory" in account and "results" in account["memory"]:
                 memory_results = account["memory"]["results"]
                 if memory_results and len(memory_results) > 0:
@@ -1846,14 +1846,14 @@ async def get_newrelic_dashboard():
                         "total_gb": memory_results[0].get("total_gb")
                     }
                     
-                    # Calcular usado/livre em GB
+                    
                     if result["metrics"]["memory"]["total_gb"] is not None and result["metrics"]["memory"]["percent"] is not None:
                         total_gb = result["metrics"]["memory"]["total_gb"]
                         percent = result["metrics"]["memory"]["percent"] / 100
                         result["metrics"]["memory"]["used_gb"] = total_gb * percent
                         result["metrics"]["memory"]["free_gb"] = total_gb - (total_gb * percent)
             
-            # Disco
+            
             if "disk" in account and "results" in account["disk"] and "facets" in account["disk"]:
                 disk_results = account["disk"]["results"]
                 facets = account["disk"]["facets"]
@@ -1865,7 +1865,7 @@ async def get_newrelic_dashboard():
                             "used_percent": disk_results[i].get("used_percent")
                         })
             
-            # Rede
+            
             if "network" in account and "results" in account["network"]:
                 network_results = account["network"]["results"]
                 if network_results and len(network_results) > 0:
@@ -1874,13 +1874,13 @@ async def get_newrelic_dashboard():
                         "rx_mbps": network_results[0].get("rx_mbps")
                     }
             
-            # Processos
+            
             if "processes" in account and "results" in account["processes"]:
                 process_results = account["processes"]["results"]
                 if process_results and len(process_results) > 0:
                     result["metrics"]["processes"]["count"] = process_results[0].get("count")
             
-            # Top processos
+            
             if "top_processes" in account and "results" in account["top_processes"] and "facets" in account["top_processes"]:
                 top_results = account["top_processes"]["results"]
                 facets = account["top_processes"]["facets"]
@@ -1893,9 +1893,9 @@ async def get_newrelic_dashboard():
                             "memory_mb": top_results[i].get("memory_mb")
                         })
             
-            # Salvar métricas principais no banco de dados
+            
             try:
-                # CPU
+                
                 if result["metrics"]["cpu"].get("percent") is not None:
                     await database.execute(
                         metrics.insert().values(
@@ -1905,7 +1905,7 @@ async def get_newrelic_dashboard():
                         )
                     )
                 
-                # Memória
+                
                 if result["metrics"]["memory"].get("percent") is not None:
                     await database.execute(
                         metrics.insert().values(
@@ -1915,7 +1915,7 @@ async def get_newrelic_dashboard():
                         )
                     )
                 
-                # Processos
+                
                 if result["metrics"]["processes"].get("count") is not None:
                     await database.execute(
                         metrics.insert().values(
@@ -1925,7 +1925,7 @@ async def get_newrelic_dashboard():
                         )
                     )
                 
-                # Rede
+                
                 if result["metrics"]["network"].get("tx_mbps") is not None:
                     await database.execute(
                         metrics.insert().values(
@@ -1971,7 +1971,7 @@ async def get_newrelic_complete(hours: int = 3):
             "Content-Type": "application/json"
         }
 
-        # Query para dados atuais
+        
         current_query = """
         {
           actor {
@@ -2007,7 +2007,7 @@ async def get_newrelic_complete(hours: int = 3):
         """ % (TUKSTATION_ENTITY_GUID, TUKSTATION_ENTITY_GUID, TUKSTATION_ENTITY_GUID, 
                TUKSTATION_ENTITY_GUID, TUKSTATION_ENTITY_GUID)
         
-        # Query para dados históricos
+        
         historical_query = """
         {
           actor {
@@ -2034,7 +2034,7 @@ async def get_newrelic_complete(hours: int = 3):
                TUKSTATION_ENTITY_GUID, hours, TUKSTATION_ENTITY_GUID, hours,
                TUKSTATION_ENTITY_GUID, hours)
         
-        # Executar as queries em paralelo
+        
         current_response_future = __import__("asyncio").create_task(
             __import__("asyncio").to_thread(
                 requests.post,
@@ -2053,13 +2053,13 @@ async def get_newrelic_complete(hours: int = 3):
             )
         )
         
-        # Esperar as duas respostas
+        
         current_response, historical_response = await __import__("asyncio").gather(
             current_response_future,
             historical_response_future
         )
         
-        # Verificar respostas
+        
         if current_response.status_code != 200 or historical_response.status_code != 200:
             return {
                 "error": "Erro em uma ou mais requisições",
@@ -2070,7 +2070,7 @@ async def get_newrelic_complete(hours: int = 3):
         current_data = current_response.json()
         historical_data = historical_response.json()
         
-        # Criar estrutura de resultado
+        
         result = {
             "timestamp": __import__("datetime").datetime.now().isoformat(),
             "entity_guid": TUKSTATION_ENTITY_GUID,
@@ -2095,11 +2095,11 @@ async def get_newrelic_complete(hours: int = 3):
             }
         }
         
-        # Processar dados atuais
+        
         if "data" in current_data and "actor" in current_data["data"]:
             account = current_data["data"]["actor"]["account"]
             
-            # Informações do host
+            
             if "host" in account and "results" in account["host"]:
                 host_results = account["host"]["results"]
                 if host_results and len(host_results) > 0:
@@ -2112,7 +2112,7 @@ async def get_newrelic_complete(hours: int = 3):
                         "last_report": host_results[0].get("last_report")
                     }
             
-            # Sistema
+            
             if "system" in account and "results" in account["system"]:
                 system_results = account["system"]["results"]
                 if system_results and len(system_results) > 0:
@@ -2124,14 +2124,14 @@ async def get_newrelic_complete(hours: int = 3):
                         "uptime_days": system_results[0].get("uptime_days")
                     }
                     
-                    # Calcular memória utilizada/livre
+                    
                     if result["current"]["system"].get("memory_total_gb") is not None and result["current"]["system"].get("memory_percent") is not None:
                         total_gb = result["current"]["system"]["memory_total_gb"]
                         percent = result["current"]["system"]["memory_percent"] / 100
                         result["current"]["system"]["memory_used_gb"] = total_gb * percent
                         result["current"]["system"]["memory_free_gb"] = total_gb - (total_gb * percent)
             
-            # Disco
+            
             if "disk" in account and "results" in account["disk"] and "facets" in account["disk"]:
                 disk_results = account["disk"]["results"]
                 facets = account["disk"]["facets"]
@@ -2144,7 +2144,7 @@ async def get_newrelic_complete(hours: int = 3):
                             "total_gb": disk_results[i].get("total_gb")
                         }
                         
-                        # Calcular espaço utilizado/livre
+                        
                         if disk_info.get("total_gb") is not None and disk_info.get("used_percent") is not None:
                             total_gb = disk_info["total_gb"]
                             percent = disk_info["used_percent"] / 100
@@ -2153,7 +2153,7 @@ async def get_newrelic_complete(hours: int = 3):
                         
                         result["current"]["disk"].append(disk_info)
             
-            # Rede
+            
             if "network" in account and "results" in account["network"] and "facets" in account["network"]:
                 network_results = account["network"]["results"]
                 facets = account["network"]["facets"]
@@ -2166,14 +2166,14 @@ async def get_newrelic_complete(hours: int = 3):
                             "rx_mbps": network_results[i].get("rx_mbps")
                         })
             
-            # Processos
+            
             if "processes" in account and "results" in account["processes"]:
                 process_results = account["processes"]["results"]
                 if process_results and len(process_results) > 0:
                     result["current"]["processes"]["count"] = process_results[0].get("count")
                     result["current"]["processes"]["unique_count"] = process_results[0].get("unique_count")
             
-            # Top processos por CPU
+            
             if "top_cpu" in account and "results" in account["top_cpu"] and "facets" in account["top_cpu"]:
                 top_results = account["top_cpu"]["results"]
                 facets = account["top_cpu"]["facets"]
@@ -2186,7 +2186,7 @@ async def get_newrelic_complete(hours: int = 3):
                             "memory_mb": top_results[i].get("memory_mb")
                         })
             
-            # Top processos por memória
+            
             if "top_memory" in account and "results" in account["top_memory"] and "facets" in account["top_memory"]:
                 top_results = account["top_memory"]["results"]
                 facets = account["top_memory"]["facets"]
@@ -2199,11 +2199,11 @@ async def get_newrelic_complete(hours: int = 3):
                             "cpu_percent": top_results[i].get("cpu")
                         })
         
-        # Processar dados históricos
+        
         if "data" in historical_data and "actor" in historical_data["data"]:
             account = historical_data["data"]["actor"]["account"]
             
-            # Histórico de CPU
+            
             if "cpu_history" in account and "results" in account["cpu_history"]:
                 cpu_results = account["cpu_history"]["results"]
                 result["historical"]["cpu"] = [
@@ -2215,7 +2215,7 @@ async def get_newrelic_complete(hours: int = 3):
                     if "beginTimeSeconds" in point and "cpu" in point
                 ]
                 
-                # Calcular estatísticas
+                
                 if result["historical"]["cpu"]:
                     values = [point["value"] for point in result["historical"]["cpu"] if point["value"] is not None]
                     if values:
@@ -2225,7 +2225,7 @@ async def get_newrelic_complete(hours: int = 3):
                             "max": max(values)
                         }
             
-            # Histórico de memória
+            
             if "memory_history" in account and "results" in account["memory_history"]:
                 memory_results = account["memory_history"]["results"]
                 result["historical"]["memory"] = [
@@ -2237,7 +2237,7 @@ async def get_newrelic_complete(hours: int = 3):
                     if "beginTimeSeconds" in point and "memory" in point
                 ]
                 
-                # Calcular estatísticas
+                
                 if result["historical"]["memory"]:
                     values = [point["value"] for point in result["historical"]["memory"] if point["value"] is not None]
                     if values:
@@ -2247,7 +2247,7 @@ async def get_newrelic_complete(hours: int = 3):
                             "max": max(values)
                         }
             
-            # Histórico de disco
+            
             if "disk_history" in account and "results" in account["disk_history"]:
                 disk_results = account["disk_history"]["results"]
                 result["historical"]["disk"] = [
@@ -2259,7 +2259,7 @@ async def get_newrelic_complete(hours: int = 3):
                     if "beginTimeSeconds" in point and "disk" in point
                 ]
             
-            # Histórico de rede
+            
             if "network_history" in account and "results" in account["network_history"]:
                 network_results = account["network_history"]["results"]
                 result["historical"]["network"] = [
@@ -2272,7 +2272,7 @@ async def get_newrelic_complete(hours: int = 3):
                     if "beginTimeSeconds" in point
                 ]
             
-            # Histórico de carga
+            
             if "load_history" in account and "results" in account["load_history"]:
                 load_results = account["load_history"]["results"]
                 result["historical"]["load"] = [
@@ -2284,9 +2284,9 @@ async def get_newrelic_complete(hours: int = 3):
                     if "beginTimeSeconds" in point and "load_1min" in point
                 ]
         
-        # Salvar métricas principais no banco de dados
+        
         try:
-            # CPU
+            
             if result["current"]["system"].get("cpu_percent") is not None:
                 await database.execute(
                     metrics.insert().values(
@@ -2296,7 +2296,7 @@ async def get_newrelic_complete(hours: int = 3):
                     )
                 )
             
-            # Memória
+            
             if result["current"]["system"].get("memory_percent") is not None:
                 await database.execute(
                     metrics.insert().values(
@@ -2306,7 +2306,7 @@ async def get_newrelic_complete(hours: int = 3):
                     )
                 )
             
-            # Processos
+            
             if result["current"]["processes"].get("count") is not None:
                 await database.execute(
                     metrics.insert().values(
@@ -2340,7 +2340,7 @@ async def list_newrelic_hosts():
             "Content-Type": "application/json"
         }
         
-        # Consulta GraphQL para listar todos os hosts
+        
         graphql_query = """
         {
           actor {
@@ -2371,9 +2371,9 @@ async def list_newrelic_hosts():
             
         data = response.json()
         
-        # Extrair dados dos hosts
+        
         hosts = []
-        host_guids = set()  # Para evitar duplicatas
+        host_guids = set()  
         
         if ("data" in data and "actor" in data["data"] and 
             "account" in data["data"]["actor"] and "hosts" in data["data"]["actor"]["account"] and 
@@ -2391,7 +2391,7 @@ async def list_newrelic_hosts():
                         "windows_version": host.get("windowsVersion")
                     })
         
-        # Se não encontrou hosts, tenta buscar usando o modo alternativo
+        
         if not hosts and "infra_hosts" in data["data"]["actor"]["account"]:
             infra_results = data["data"]["actor"]["account"]["infra_hosts"]["results"]
             if infra_results and len(infra_results) > 0:
@@ -2399,7 +2399,7 @@ async def list_newrelic_hosts():
                 guids = infra_results[0].get("uniques.entityGuid", [])
                 fullhostnames = infra_results[0].get("uniques.fullHostname", [])
                 
-                # Tenta mapear hostnames com GUIDs (caso os arrays tenham o mesmo tamanho)
+                
                 if len(hostnames) == len(guids):
                     for i in range(len(hostnames)):
                         full_hostname = fullhostnames[i] if i < len(fullhostnames) else None
@@ -2407,11 +2407,11 @@ async def list_newrelic_hosts():
                             "name": hostnames[i],
                             "guid": guids[i],
                             "hostname": full_hostname,
-                            "os": None,  # Informação não disponível neste formato
-                            "windows_version": None  # Informação não disponível neste formato
+                            "os": None,  
+                            "windows_version": None  
                         })
                 else:
-                    # Caso contrário, separa as informações
+                    
                     for hostname in hostnames:
                         hosts.append({
                             "name": hostname,
@@ -2430,7 +2430,7 @@ async def list_newrelic_hosts():
                             "windows_version": None
                         })
         
-        # Se ainda não temos hosts, fazemos uma última tentativa buscando apenas GUIDs
+        
         if not hosts:
             last_attempt_query = """
             {
@@ -2503,7 +2503,7 @@ async def fetch_newrelic_basic():
             "Content-Type": "application/json"
         }
         
-        # Consulta GraphQL simples para obter métricas básicas
+        
         graphql_query = """
         {
           actor {
@@ -2551,33 +2551,33 @@ async def fetch_newrelic_basic():
             "host": None
         }
         
-        # Tentar extrair dados do host específico
+        
         has_data = False
         
         if "data" in data and "actor" in data["data"] and "account" in data["data"]["actor"]:
             account = data["data"]["actor"]["account"]
             
-            # Nome do host
+            
             if "host" in account and "results" in account["host"] and account["host"]["results"]:
                 host_results = account["host"]["results"]
                 if host_results and len(host_results) > 0:
                     result["host"] = host_results[0].get("entityName")
             
-            # CPU
+            
             if "cpu" in account and "results" in account["cpu"] and account["cpu"]["results"]:
                 cpu_results = account["cpu"]["results"]
                 if cpu_results and len(cpu_results) > 0 and "cpu" in cpu_results[0]:
                     result["metrics"]["cpu"] = cpu_results[0]["cpu"]
                     has_data = True
             
-            # Memória
+            
             if "memory" in account and "results" in account["memory"] and account["memory"]["results"]:
                 memory_results = account["memory"]["results"]
                 if memory_results and len(memory_results) > 0 and "memory" in memory_results[0]:
                     result["metrics"]["memory"] = memory_results[0]["memory"]
                     has_data = True
             
-            # Se não temos dados do host específico, usar fallback
+            
             if not has_data and "fallback" in account and "results" in account["fallback"]:
                 fallback_results = account["fallback"]["results"]
                 if fallback_results and len(fallback_results) > 0:
@@ -2586,7 +2586,7 @@ async def fetch_newrelic_basic():
                     result["message"] = "Usando dados de fallback (não específicos para o host solicitado)"
                     has_data = True
         
-        # Se ainda não temos dados, tentar uma última consulta mais simples
+        
         if not has_data:
             simple_query = """
             {
@@ -2622,7 +2622,7 @@ async def fetch_newrelic_basic():
                         result["message"] = "Usando dados de fallback final (qualquer host disponível)"
                         has_data = True
         
-        # Salvar métricas no banco de dados se disponíveis
+        
         if result["metrics"]["cpu"] is not None:
             try:
                 await database.execute(
@@ -2670,7 +2670,7 @@ async def discover_newrelic_data():
             "Content-Type": "application/json"
         }
         
-        # Consulta GraphQL para descobrir tipos de eventos
+        
         event_types_query = """
         {
           actor {
@@ -2743,26 +2743,26 @@ async def discover_newrelic_data():
             }
         }
         
-        # Extrair tipos de eventos e métricas
+        
         account = None
         if "data" in data and "actor" in data["data"] and "account" in data["data"]["actor"]:
             account = data["data"]["actor"]["account"]
             
-            # Tipos de eventos
+            
             if "eventTypes" in account and "results" in account["eventTypes"]:
                 event_results = account["eventTypes"]["results"]
                 for event in event_results:
                     if "eventType" in event:
                         result["discovery"]["event_types"].append(event["eventType"])
             
-            # Métricas
+            
             if "metrics" in account and "results" in account["metrics"]:
                 metric_results = account["metrics"]["results"]
                 for metric in metric_results:
                     if "metric" in metric:
                         result["discovery"]["metrics"].append(metric["metric"])
             
-            # Atributos do SystemSample
+            
             if ("host_metadata" in account and "metadata" in account["host_metadata"] and 
                 "attributes" in account["host_metadata"]["metadata"]):
                 
@@ -2770,7 +2770,7 @@ async def discover_newrelic_data():
                 if isinstance(attributes, list):
                     result["discovery"]["system_attributes"] = attributes
             
-            # Atributos do NetworkSample
+            
             if ("network_metadata" in account and "metadata" in account["network_metadata"] and 
                 "attributes" in account["network_metadata"]["metadata"]):
                 
@@ -2778,7 +2778,7 @@ async def discover_newrelic_data():
                 if isinstance(attributes, list):
                     result["discovery"]["network_attributes"] = attributes
             
-            # Atributos do StorageSample
+            
             if ("storage_metadata" in account and "metadata" in account["storage_metadata"] and 
                 "attributes" in account["storage_metadata"]["metadata"]):
                 
@@ -2786,7 +2786,7 @@ async def discover_newrelic_data():
                 if isinstance(attributes, list):
                     result["discovery"]["storage_attributes"] = attributes
             
-            # Atributos do ProcessSample
+            
             if ("process_metadata" in account and "metadata" in account["process_metadata"] and 
                 "attributes" in account["process_metadata"]["metadata"]):
                 
@@ -2794,7 +2794,7 @@ async def discover_newrelic_data():
                 if isinstance(attributes, list):
                     result["discovery"]["process_attributes"] = attributes
         
-        # Criar exemplos de NRQL
+        
         result["nrql_examples"] = [
             {
                 "description": "Uso de CPU ao longo do tempo",
@@ -2818,16 +2818,16 @@ async def discover_newrelic_data():
             }
         ]
         
-        # Adicionar links úteis de documentação
+        
         result["useful_links"] = {
             "nrql_docs": "https://docs.newrelic.com/docs/query-your-data/nrql-new-relic-query-language/get-started/introduction-nrql-new-relics-query-language/",
             "metric_types": "https://docs.newrelic.com/docs/data-apis/understand-data/metric-data/metric-data-type/",
             "graphql_api": "https://docs.newrelic.com/docs/apis/nerdgraph/get-started/introduction-new-relic-nerdgraph/"
         }
         
-        # Adicionar exemplos de dados apenas se account foi devidamente definido
+        
         if account:
-            # Exemplo de dados
+            
             examples = {}
             
             if "host_metadata" in account and "results" in account["host_metadata"]:
@@ -2835,7 +2835,7 @@ async def discover_newrelic_data():
                 if host_results and len(host_results) > 0:
                     examples["system_sample"] = host_results[0]
                     
-                    # Adicionar exemplo usando hostname se disponível
+                    
                     host_name = host_results[0].get("entityName")
                     if host_name:
                         result["nrql_examples"].append({
@@ -2887,7 +2887,7 @@ async def get_newrelic_logs(minutes: int = 30, limit: int = 100):
             "Content-Type": "application/json"
         }
 
-        # Query para logs usando entityGuid fornecido
+        
         query = """
         {
           actor {
@@ -2930,7 +2930,7 @@ async def get_newrelic_logs(minutes: int = 30, limit: int = 100):
             
         data = response.json()
         
-        # Processar os resultados
+        
         result = {
             "timestamp": __import__("datetime").datetime.now().isoformat(),
             "entity_guid": TUKSTATION_ENTITY_GUID,
@@ -2942,29 +2942,29 @@ async def get_newrelic_logs(minutes: int = 30, limit: int = 100):
             "query_period_minutes": minutes
         }
         
-        # Extrair logs
+        
         if "data" in data and "actor" in data["data"] and "account" in data["data"]["actor"]:
             account = data["data"]["actor"]["account"]
             
-            # Logs gerais
+            
             if "logs" in account and "results" in account["logs"]:
                 log_results = account["logs"]["results"]
                 result["logs"] = log_results
                 result["log_count"] = len(log_results)
             
-            # Logs de erro
+            
             if "error_logs" in account and "results" in account["error_logs"]:
                 error_results = account["error_logs"]["results"]
                 result["errors"] = error_results
                 result["error_count"] = len(error_results)
             
-            # Logs de aviso
+            
             if "warnings" in account and "results" in account["warnings"]:
                 warning_results = account["warnings"]["results"]
                 result["warnings"] = warning_results
                 result["warning_count"] = len(warning_results)
             
-            # Resumo de tipos de eventos
+            
             if "event_types" in account and "results" in account["event_types"] and "facets" in account["event_types"]:
                 event_results = account["event_types"]["results"]
                 facets = account["event_types"]["facets"]
@@ -2983,13 +2983,13 @@ async def get_newrelic_logs(minutes: int = 30, limit: int = 100):
                 
                 result["log_summary"] = event_summary
         
-        # Verificar se temos dados
+        
         if not result["logs"] and not result["errors"] and not result["warnings"]:
             result["status"] = "warning"
             result["message"] = f"Nenhum log encontrado para o período de {minutes} minutos"
             
-            # Tentar buscar com um período maior se não encontramos logs
-            if minutes < 360:  # Não vamos tentar mais de 6 horas
+            
+            if minutes < 360:  
                 result["suggestion"] = f"Tente aumentar o período de busca: /nr/logs?minutes={minutes*2}"
         else:
             result["message"] = f"Encontrados {result.get('log_count', 0)} logs, incluindo {result.get('error_count', 0)} erros e {result.get('warning_count', 0)} avisos"
@@ -3019,10 +3019,10 @@ async def get_kubernetes_metrics(namespace: str = None, hours: int = 1):
             "Content-Type": "application/json"
         }
 
-        # Construir a condição de namespace se fornecida
+        
         namespace_condition = f"AND kubernetes.namespaceName = '{namespace}'" if namespace else ""
         
-        # Query para buscar dados de utilização de CPU e memória por pod/container
+        
         query = """
         {
           actor {
@@ -3093,7 +3093,7 @@ async def get_kubernetes_metrics(namespace: str = None, hours: int = 1):
             "saved_records": 0
         }
         
-        # Processar métricas de CPU por container
+        
         if "cpu" in account and "results" in account["cpu"]:
             for item in account["cpu"]["results"]:
                 cluster = item.get("facet")[0] if len(item.get("facet", [])) > 0 else "unknown"
@@ -3113,7 +3113,7 @@ async def get_kubernetes_metrics(namespace: str = None, hours: int = 1):
                 }
                 result["cpu_metrics"].append(cpu_item)
                 
-                # Salvar no banco de dados
+                
                 try:
                     await database.execute(
                         kubernetes_metrics.insert().values(
@@ -3139,7 +3139,7 @@ async def get_kubernetes_metrics(namespace: str = None, hours: int = 1):
                         result["db_errors"] = []
                     result["db_errors"].append(str(e))
         
-        # Processar métricas de memória por container
+        
         if "memory" in account and "results" in account["memory"]:
             for item in account["memory"]["results"]:
                 cluster = item.get("facet")[0] if len(item.get("facet", [])) > 0 else "unknown"
@@ -3159,7 +3159,7 @@ async def get_kubernetes_metrics(namespace: str = None, hours: int = 1):
                 }
                 result["memory_metrics"].append(memory_item)
                 
-                # Salvar no banco de dados
+                
                 try:
                     await database.execute(
                         kubernetes_metrics.insert().values(
@@ -3185,7 +3185,7 @@ async def get_kubernetes_metrics(namespace: str = None, hours: int = 1):
                         result["db_errors"] = []
                     result["db_errors"].append(str(e))
         
-        # Processar contagem de pods por namespace
+        
         if "pods" in account and "results" in account["pods"]:
             for item in account["pods"]["results"]:
                 cluster = item.get("facet")[0] if len(item.get("facet", [])) > 0 else "unknown"
@@ -3198,7 +3198,7 @@ async def get_kubernetes_metrics(namespace: str = None, hours: int = 1):
                 }
                 result["pod_counts"].append(pod_count)
                 
-                # Salvar no banco de dados
+                
                 try:
                     await database.execute(
                         kubernetes_metrics.insert().values(
@@ -3220,7 +3220,7 @@ async def get_kubernetes_metrics(namespace: str = None, hours: int = 1):
                         result["db_errors"] = []
                     result["db_errors"].append(str(e))
         
-        # Processar contagem de containers por namespace
+        
         if "containers" in account and "results" in account["containers"]:
             for item in account["containers"]["results"]:
                 cluster = item.get("facet")[0] if len(item.get("facet", [])) > 0 else "unknown"
@@ -3233,7 +3233,7 @@ async def get_kubernetes_metrics(namespace: str = None, hours: int = 1):
                 }
                 result["container_counts"].append(container_count)
                 
-                # Salvar no banco de dados
+                
                 try:
                     await database.execute(
                         kubernetes_metrics.insert().values(
@@ -3255,7 +3255,7 @@ async def get_kubernetes_metrics(namespace: str = None, hours: int = 1):
                         result["db_errors"] = []
                     result["db_errors"].append(str(e))
         
-        # Adicionar estatísticas agregadas
+        
         if result["cpu_metrics"]:
             cpu_values = [item.get("cpu_used") for item in result["cpu_metrics"] if item.get("cpu_used") is not None]
             if cpu_values:
